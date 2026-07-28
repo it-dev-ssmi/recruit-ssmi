@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Admin = ผู้ใช้ที่ล็อกอินผ่าน Firebase Authentication แล้วเท่านั้น
+    // (สร้างบัญชี admin เองใน Firebase Console → Authentication → Add user
+    //  และปิดการสมัครสมาชิกเองไว้ — ดู README ขั้นตอน "หน้า Admin")
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    function isValidApplication(data) {
+      return data.keys().hasAll(['name', 'email', 'phone', 'department', 'position'])
+        && data.name is string && data.name.size() > 0 && data.name.size() < 200
+        && data.email is string && data.email.size() > 0 && data.email.size() < 200
+        && data.phone is string && data.phone.size() > 0 && data.phone.size() < 50
+        && data.department is string
+        && data.position is string
+        && data.to is list;
+    }
+
+    // ใบสมัครงาน
+    // - create: ทุกคนส่งใบสมัครได้ (ไม่ต้องล็อกอิน)
+    // - read/update/delete: เฉพาะ admin (ดู/เปลี่ยนสถานะ/ลบ ผ่านหน้า admin.html)
+    match /applications/{applicationId} {
+      allow create: if isValidApplication(request.resource.data);
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ข้อมูลแผนก
+    // - read: ทุกคนอ่านได้ (หน้าเว็บสาธารณะใช้แสดงแผนก/ตำแหน่ง)
+    // - write: เฉพาะ admin (จัดการผ่านหน้า admin.html)
+    match /departments/{deptId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // การตั้งค่าระบบ (อีเมลแจ้งเตือน HR, โครงสร้างฟอร์มสมัคร ฯลฯ)
+    // - read: ทุกคนอ่านได้ (หน้าฟอร์มสาธารณะต้องใช้ตอน render/ส่งใบสมัคร)
+    // - write: เฉพาะ admin (แก้จากแท็บ "ตั้งค่า" ในหน้า admin.html)
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Block everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

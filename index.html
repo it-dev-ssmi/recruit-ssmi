@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ຮ່ວມງານກັບ SSMI — ສະໝັກງານຕາມສາຍງານ</title>
+<meta name="description" content="ສກຈຮ ສິນຊັບເມືອງເໜືອ (SSMI) ເປີດຮັບສະໝັກພະນັກງານ ສຳຫຼວດແຕ່ລະຝ່າຍ ເບິ່ງພາລະໜ້າທີ່ ແລະ ສະໝັກຕຳແໜ່ງທີ່ເປີດຮັບໄດ້ທີ່ນີ້">
+<meta name="theme-color" content="#070d1a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="aurora" aria-hidden="true">
+    <span class="aurora-blob aurora-blob--gold"></span>
+    <span class="aurora-blob aurora-blob--cyan"></span>
+    <span class="aurora-blob aurora-blob--navy"></span>
+  </div>
+
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="#/">
+        <!-- ວາງໄຟລ໌ໂລໂກ້ຂອງອົງກອນຊື່ logo.png ໄວ້ໃນໂຟນເດີດຽວກັນ
+             ຖ້າບໍ່ມີໄຟລ໌ ລະບົບຈະສະແດງເຄື່ອງໝາຍ "SS" ແທນອັດຕະໂນມັດ -->
+        <img src="logo.png" alt="SSMI logo" class="brand-logo"
+             onerror="this.remove(); document.querySelector('.brand-mark').hidden = false;">
+        <span class="brand-mark" hidden>SS</span>
+        <span class="brand-name" data-i18n="brand">SSMI — ສິນຊັບເມືອງເໜືອ</span>
+      </a>
+      <nav class="header-nav">
+        <a href="#/" class="nav-link" data-i18n="navAll">ຝ່າຍທັງໝົດ</a>
+        <button type="button" class="lang-toggle" id="lang-toggle" aria-label="Switch language">
+          <span data-lang-opt="la">ລາວ</span><i>/</i><span data-lang-opt="en">EN</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- JS renders views here: directory grid OR department detail -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-row">
+      <p>© <span id="year"></span> <span data-i18n="footerBrand">SSMI ສິນຊັບເມືອງເໜືອ</span></p>
+      <p class="footer-note" data-i18n="footerNote">ຂໍ້ມູນຜູ້ສະໝັກຈະຖືກສົ່ງກົງເຖິງຝ່າຍບຸກຄະລາກອນເພື່ອພິຈາລະນາ</p>
+    </div>
+  </footer>
+
+  <!-- Application modal -->
+  <div id="apply-overlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="apply-title">
+      <button class="modal-close" id="apply-close" aria-label="Close">✕</button>
+
+      <div class="modal-head">
+        <p class="modal-eyebrow" id="apply-dept-label">ຝ່າຍ</p>
+        <h2 id="apply-title">ສະໝັກຕຳແໜ່ງ</h2>
+      </div>
+
+      <form id="apply-form" novalidate>
+        <input type="hidden" id="field-department">
+        <input type="hidden" id="field-department-id">
+        <input type="hidden" id="field-position">
+
+        <div class="field-grid">
+          <label class="field">
+            <span data-i18n="fName">ຊື່ ແລະ ນາມສະກຸນ <em>*</em></span>
+            <input type="text" id="field-name" required autocomplete="name">
+          </label>
+          <label class="field">
+            <span data-i18n="fEmail">ອີເມວ <em>*</em></span>
+            <input type="email" id="field-email" required autocomplete="email">
+          </label>
+          <label class="field">
+            <span data-i18n="fPhone">ເບີໂທລະສັບ <em>*</em></span>
+            <input type="tel" id="field-phone" required autocomplete="tel">
+          </label>
+        </div>
+
+        <!-- ຊ່ອງກອກເພີ່ມເຕີມ — ໂຄງສ້າງມາຈາກ Firestore (settings/applicationForm)
+             ຈັດການໄດ້ຈາກໜ້າ admin → ແທັບ "ຕັ້ງຄ່າ" ໂດຍບໍ່ຕ້ອງແກ້ໂຄດ -->
+        <div id="custom-fields"></div>
+
+        <p class="form-note" data-i18n="formNote">ເມື່ອກົດສົ່ງ ຂໍ້ມູນຂອງທ່ານຈະຖືກບັນທຶກເຂົ້າລະບົບ ແລະ ແຈ້ງເຕືອນຝ່າຍບຸກຄະລາກອນໂດຍອັດຕະໂນມັດ</p>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary" id="apply-submit" data-i18n="submit">ສົ່ງໃບສະໝັກ</button>
+          <span class="form-status" id="apply-status" role="status"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

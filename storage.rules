@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Resumes uploaded from the application form.
+    // - write: anyone can upload, but only PDFs under 5MB.
+    // - read: allowed, because getDownloadURL() needs read access to hand
+    //   back a link (used in the HR notification email), and this SDK call
+    //   only works if you already know the exact path. Paths are unguessable
+    //   (random Firestore document ID + original filename) and Storage does
+    //   not support directory listing, so files can't be discovered/browsed —
+    //   only opened by whoever has the exact link.
+    // - delete: blocked publicly.
+    match /resumes/{applicationId}/{fileName} {
+      allow write: if request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+      allow read: if true;
+      // admin (ล็อกอินแล้ว) ลบไฟล์เรซูเม่ได้ เมื่อลบใบสมัครจากหน้า admin
+      allow delete: if request.auth != null;
+    }
+
+    // ไฟล์แนบจากช่องฟอร์มที่ admin สร้างเอง (ประเภท "แนบไฟล์ PDF" / "แนบรูปภาพ")
+    // - write: ทุกคนอัปโหลดได้ เฉพาะ PDF หรือรูปภาพ ขนาดไม่เกิน 5MB
+    // - read: เปิดได้เฉพาะผู้ที่มีลิงก์ (path เดารูปแบบไม่ได้ เหมือน resumes)
+    // - delete: เฉพาะ admin ที่ล็อกอิน (ตอนลบใบสมัคร)
+    match /attachments/{applicationId}/{fileName} {
+      allow write: if request.resource.size < 5 * 1024 * 1024
+        && (request.resource.contentType == 'application/pdf'
+            || request.resource.contentType.matches('image/.*'));
+      allow read: if true;
+      allow delete: if request.auth != null;
+    }
+
+    // Block everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — จัดการแผนกและใบสมัคร | SSMI</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">SS</span>
+        <span class="brand-name">SSMI — Admin</span>
+      </a>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-link nav-link--muted" target="_blank">ดูหน้าเว็บจริง ↗</a>
+        <button class="btn btn--ghost btn--sm" id="logout-btn" hidden>ออกจากระบบ</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================= LOGIN VIEW ================= -->
+  <main id="login-view" hidden>
+    <section class="admin-login">
+      <div class="login-card">
+        <span class="dept-code">ADMIN</span>
+        <h1>เข้าสู่ระบบผู้ดูแล</h1>
+        <p class="login-note">ใช้บัญชีที่สร้างไว้ใน Firebase Console → Authentication</p>
+        <form id="login-form" novalidate>
+          <label class="field">
+            <span>อีเมล</span>
+            <input type="email" id="login-email" required autocomplete="username">
+          </label>
+          <label class="field">
+            <span>รหัสผ่าน</span>
+            <input type="password" id="login-password" required autocomplete="current-password">
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="login-submit">เข้าสู่ระบบ</button>
+            <span class="form-status" id="login-status" role="status"></span>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= ADMIN VIEW ================= -->
+  <main id="admin-view" hidden>
+    <section class="admin-shell">
+      <div class="wrap">
+
+        <div class="admin-head">
+          <div>
+            <h1>แผงควบคุมผู้ดูแล</h1>
+            <p class="admin-user">ล็อกอินเป็น: <b id="admin-email"></b></p>
+          </div>
+          <div class="admin-tabs" role="tablist">
+            <button class="tab-btn is-active" data-tab="departments">จัดการแผนก</button>
+            <button class="tab-btn" data-tab="applications">ใบสมัคร <span class="tab-count" id="app-count"></span></button>
+            <button class="tab-btn" data-tab="settings">ตั้งค่า</button>
+          </div>
+        </div>
+
+        <!-- ---------- TAB: DEPARTMENTS ---------- -->
+        <div id="tab-departments" class="tab-panel">
+          <div class="panel-toolbar">
+            <button class="btn btn--primary" id="add-dept-btn">+ เพิ่มแผนกใหม่</button>
+            <button class="btn btn--ghost" id="seed-btn">นำเข้าข้อมูลตั้งต้น (7 แผนก)</button>
+            <span class="form-status" id="dept-status" role="status"></span>
+          </div>
+          <div id="dept-admin-list" class="dept-admin-list">
+            <!-- rendered by admin.js -->
+          </div>
+        </div>
+
+        <!-- ---------- TAB: SETTINGS ---------- -->
+        <div id="tab-settings" class="tab-panel" hidden>
+
+          <div class="settings-block">
+            <h3>อีเมลแจ้งเตือน HR</h3>
+            <p class="settings-sub">เมื่อมีคนส่งใบสมัคร ระบบจะส่งอีเมลแจ้งไปยังที่อยู่เหล่านี้ (1 บรรทัด = 1 อีเมล)
+            — ต้องติดตั้ง Extension "Trigger Email from Firestore" ก่อน อีเมลจึงจะถูกส่งจริง (ดู README)</p>
+            <form id="notify-form" novalidate>
+              <label class="field">
+                <span>รายชื่ออีเมลผู้รับ</span>
+                <textarea id="notify-emails" rows="4" placeholder="admin.hr@ssmilaos.com&#10;manager@ssmilaos.com"></textarea>
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="btn btn--primary">บันทึกอีเมลแจ้งเตือน</button>
+                <span class="form-status" id="notify-status" role="status"></span>
+              </div>
+            </form>
+          </div>
+
+          <div class="settings-block">
+            <h3>ช่องกรอกในฟอร์มสมัครงาน</h3>
+            <p class="settings-sub">ช่อง <b>ชื่อ / อีเมล / เบอร์โทรศัพท์</b> เป็นช่องบังคับถาวรของระบบ ลบไม่ได้
+            — ช่องอื่นๆ ด้านล่างนี้ เพิ่ม/ลบ/เรียงลำดับ/ตั้งเป็นช่องบังคับได้ตามต้องการ
+            รองรับทั้งข้อความ ตัวเลือก แนบไฟล์ PDF และแนบรูปภาพ</p>
+            <div class="panel-toolbar">
+              <button type="button" class="btn btn--primary" id="add-form-field-btn">+ เพิ่มช่องกรอก</button>
+              <button type="button" class="btn btn--ghost" id="save-form-fields-btn">บันทึกฟอร์ม</button>
+              <span class="form-status" id="form-fields-status" role="status"></span>
+            </div>
+            <div id="form-fields-container"><!-- rendered by admin.js --></div>
+          </div>
+
+        </div>
+
+        <div id="tab-applications" class="tab-panel" hidden>
+          <div class="panel-toolbar">
+            <button class="btn btn--ghost" id="reload-apps-btn">รีเฟรชรายการ</button>
+            <span class="form-status" id="apps-status" role="status"></span>
+          </div>
+          <div id="apps-list" class="apps-list">
+            <!-- rendered by admin.js -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= DEPARTMENT EDIT MODAL ================= -->
+  <div id="dept-overlay" class="overlay" hidden>
+    <div class="modal modal--wide" role="dialog" aria-modal="true" aria-labelledby="dept-modal-title">
+      <button class="modal-close" id="dept-close" aria-label="ปิดหน้าต่างแก้ไขแผนก">✕</button>
+
+      <div class="modal-head">
+        <p class="modal-eyebrow">แผนก</p>
+        <h2 id="dept-modal-title">แก้ไขแผนก</h2>
+      </div>
+
+      <form id="dept-form" novalidate>
+        <input type="hidden" id="dept-doc-id">
+
+        <div class="field-grid">
+          <label class="field">
+            <span>รหัสแผนก (สั้นๆ เช่น MKT) <em>*</em></span>
+            <input type="text" id="dept-code" required maxlength="8" placeholder="MKT">
+          </label>
+          <label class="field">
+            <span>ลำดับการแสดงผล</span>
+            <input type="number" id="dept-order" min="0" step="1" placeholder="1">
+          </label>
+        </div>
+
+        <label class="field">
+          <span>ชื่อแผนก <em>*</em></span>
+          <input type="text" id="dept-name" required placeholder="ຝ່າຍການຕະຫຼາດ">
+        </label>
+
+        <label class="field">
+          <span>คำอธิบายภารกิจของแผนก (mission)</span>
+          <textarea id="dept-mission" rows="3"></textarea>
+        </label>
+
+        <label class="field">
+          <span>ภาระหน้าที่หลักของแผนก (1 บรรทัด = 1 ข้อ)</span>
+          <textarea id="dept-responsibilities" rows="5" placeholder="วางแผนการตลาด...&#10;ให้บริการลูกค้า..."></textarea>
+        </label>
+
+        <div class="positions-editor">
+          <div class="positions-editor-head">
+            <h4>ตำแหน่งที่เปิดรับในแผนกนี้</h4>
+            <button type="button" class="btn btn--ghost btn--sm" id="add-position-btn">+ เพิ่มตำแหน่ง</button>
+          </div>
+          <div id="positions-container"><!-- position blocks --></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary" id="dept-save">บันทึกแผนก</button>
+          <span class="form-status" id="dept-form-status" role="status"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap footer-row">
+      <p>© <span id="year"></span> SSMI ສິນຊັບເມືອງເໜືອ — หน้าสำหรับผู้ดูแลระบบเท่านั้น</p>
+      <p class="footer-note">ข้อมูลที่แก้ไขจะแสดงบนหน้าเว็บสาธารณะทันที</p>
+    </div>
+  </footer>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
