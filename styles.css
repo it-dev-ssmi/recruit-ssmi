@@ -654,3 +654,11 @@ a{ color: inherit; text-decoration: none; }
   .brand-logo{ height: 32px; }
   .wrap{ padding: 0 20px; }
 }
+
+/* ---------- Closed positions (accepting advance profiles) ---------- */
+.position-card--closed{ opacity: 0.82; }
+.tag--closed{
+  background: var(--brass-soft);
+  border-color: var(--brass-line);
+  color: var(--gold-text);
+}

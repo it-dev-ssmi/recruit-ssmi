@@ -31,6 +31,10 @@ const FIREBASE_NOT_CONFIGURED = firebaseConfig.apiKey === "YOUR_API_KEY";
    ========================================================================== */
 let DEPARTMENTS = [];
 
+/* ຕຳແໜ່ງທີ່ "ເປີດຮັບ" — position ທີ່ບໍ່ມີຟິວ open ຖືວ່າເປີດຮັບ (ຮອງຮັບຂໍ້ມູນເກົ່າ) */
+const isOpen = p => p.open !== false;
+const openPositions = d => (d.positions || []).filter(isOpen);
+
 async function loadDepartments(){
   if(FIREBASE_NOT_CONFIGURED){
     DEPARTMENTS = DEFAULT_DEPARTMENTS;
@@ -85,7 +89,7 @@ const I18N = {
     brand: "SSMI — ສິນຊັບເມືອງເໜືອ",
     navAll: "ຝ່າຍທັງໝົດ",
     heroEyebrow: "ຮ່ວມງານກັບ SSMI ສິນຊັບເມືອງເໜືອ",
-    heroTitle: 'ເລືອກຝ່າຍທີ່ໃຊ່ <span class="grad">ຄົ້ນຫາບົດບາດ</span>ທີ່ແມ່ນຂອງທ່ານ',
+    heroTitle: 'ເລືອກຕຳແໜ່ງທ່ານໂດດເດັ່ນ <span class="grad">ຄົ້ນຫາບົດບາດ</span> ທີ່ເປັນຂອງທ່ານ',
     heroSub: "ສຳຫຼວດແຕ່ລະຝ່າຍໃນສະຖາບັນການເງິນຈຸລະພາກຂອງພວກເຮົາ ເບິ່ງພາລະໜ້າທີ່ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ ແລ້ວຍື່ນໃບສະໝັກໄດ້ທັນທີຈາກໜ້ານີ້",
     statDepts: "ຝ່າຍທັງໝົດ",
     statOpen: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
@@ -102,6 +106,8 @@ const I18N = {
     applyGeneral: "ຝາກປະຫວັດໄວ້ກັບຝ່າຍນີ້",
     generalTitle: "ຝາກປະຫວັດທົ່ວໄປ",
     applyBtn: "ສະໝັກຕຳແໜ່ງນີ້",
+    closedTag: "ຍັງບໍ່ເປີດຮັບ",
+    applyClosedBtn: "ຝາກປະຫວັດໄວ້ລ່ວງໜ້າ",
     dutiesN: n => `ພາລະໜ້າທີ່ໂດຍລະອຽດ (${n} ຂໍ້)`,
     applyFor: t => `ສະໝັກຕຳແໜ່ງ: ${t}`,
     fName: 'ຊື່ ແລະ ນາມສະກຸນ <em>*</em>',
@@ -144,6 +150,8 @@ const I18N = {
     applyGeneral: "Leave your profile with this department",
     generalTitle: "General application",
     applyBtn: "Apply for this role",
+    closedTag: "Not open yet",
+    applyClosedBtn: "Submit profile in advance",
     dutiesN: n => `Detailed duties (${n} items)`,
     applyFor: t => `Apply for: ${t}`,
     fName: 'Full name <em>*</em>',
@@ -206,7 +214,7 @@ const app = document.getElementById("app");
 document.getElementById("year").textContent = new Date().getFullYear();
 
 function totalOpenPositions(){
-  return DEPARTMENTS.reduce((sum, d) => sum + (d.positions || []).length, 0);
+  return DEPARTMENTS.reduce((sum, d) => sum + openPositions(d).length, 0);
 }
 
 function escapeHtml(str){
@@ -247,7 +255,7 @@ function renderDirectory(){
 }
 
 function deptCard(d){
-  const openN = (d.positions || []).length;
+  const openN = openPositions(d).length;
   return `
     <a class="dept-card" href="#/dept/${d.id}">
       <span class="dept-code">${escapeHtml(d.code || "")}</span>
@@ -280,7 +288,7 @@ function renderDetail(deptId){
             <p class="mission">${escapeHtml(tr(d, "mission"))}</p>
           </div>
           <div class="detail-figure">
-            <b>${positions.length}</b>
+            <b>${positions.filter(isOpen).length}</b>
             ${t("openPositions")}
           </div>
         </div>
@@ -301,11 +309,9 @@ function renderDetail(deptId){
                 : `<div class="position-empty">${t("posEmpty")}</div>`
               }
             </div>
-            ${positions.length === 0 ? `
-              <div style="margin-top:16px">
-                <button class="btn btn--ghost" data-apply-general="${d.id}">${t("applyGeneral")}</button>
-              </div>` : ""
-            }
+            <div style="margin-top:16px">
+              <button class="btn btn--ghost" data-apply-general="${d.id}">${t("applyGeneral")}</button>
+            </div>
           </div>
         </div>
       </div>
@@ -326,14 +332,20 @@ function renderDetail(deptId){
 
 function positionCard(d, p, i){
   const duties = trList(p, "duties");
+  const opened = isOpen(p);
   return `
-    <div class="position-card">
+    <div class="position-card ${opened ? "" : "position-card--closed"}">
       <div class="position-top">
         <div>
           <h5>${escapeHtml(tr(p, "title"))}</h5>
-          <div class="position-tags"><span class="tag">${escapeHtml(tr(p, "type") || p.type || "")}</span></div>
+          <div class="position-tags">
+            <span class="tag">${escapeHtml(tr(p, "type") || p.type || "")}</span>
+            ${opened ? "" : `<span class="tag tag--closed">${t("closedTag")}</span>`}
+          </div>
         </div>
-        <button class="btn btn--primary" data-apply="${i}">${t("applyBtn")}</button>
+        <button class="btn ${opened ? "btn--primary" : "btn--ghost"}" data-apply="${i}">
+          ${opened ? t("applyBtn") : t("applyClosedBtn")}
+        </button>
       </div>
       <p class="position-body">${escapeHtml(tr(p, "description"))}</p>
       ${duties.length ? `
@@ -382,7 +394,10 @@ function renderCustomFields(){
     (FORM_FIELDS || []).map(customFieldHtml).join("");
 }
 
+let applyingToOpenPosition = true;
+
 function openApplyModal(dept, position){
+  applyingToOpenPosition = isOpen(position);
   document.getElementById("apply-dept-label").textContent = tr(dept, "name");
   document.getElementById("apply-title").textContent = t("applyFor")(tr(position, "title") || position.title);
   form.reset();
@@ -489,7 +504,8 @@ form.addEventListener("submit", async (e) => {
       ? attachments.map(a => `${a.label}: ${a.url}`).join("\n")
       : "ไม่มีไฟล์แนบ";
 
-    const subject = `ใบสมัครงานใหม่: ${positionVal} (${departmentVal})`;
+    const subject = (applyingToOpenPosition ? "ໃບສະໝັກໃໝ່: " : "[ຝາກປະຫວັດ] ") +
+      `${positionVal} (${departmentVal})`;
     const emailText =
       `มีผู้สมัครใหม่\n\n` +
       `ตำแหน่ง: ${positionVal}\n` +
@@ -509,6 +525,7 @@ form.addEventListener("submit", async (e) => {
       phone: phoneVal,
       answers,
       attachments,
+      advanceProfile: !applyingToOpenPosition,
       status: "new",
       submittedAt: serverTimestamp(),
       // ฟิลด์ด้านล่างถูกอ่านโดย Extension "Trigger Email from Firestore"

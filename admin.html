@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin — จัดการแผนกและใบสมัคร | SSMI</title>
+<title>Admin — ຈັດການພະແນກ ແລະ ໃບສະໝັກວຽກ | SSMI</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,8 +20,8 @@
         <span class="brand-name">SSMI — Admin</span>
       </a>
       <nav class="header-nav">
-        <a href="index.html" class="nav-link nav-link--muted" target="_blank">ดูหน้าเว็บจริง ↗</a>
-        <button class="btn btn--ghost btn--sm" id="logout-btn" hidden>ออกจากระบบ</button>
+        <a href="index.html" class="nav-link nav-link--muted" target="_blank">ເບິ່ງໜ້າເວັບ ↗</a>
+        <button class="btn btn--ghost btn--sm" id="logout-btn" hidden>ອອກຈາກລະບົບ</button>
       </nav>
     </div>
   </header>
@@ -31,19 +31,19 @@
     <section class="admin-login">
       <div class="login-card">
         <span class="dept-code">ADMIN</span>
-        <h1>เข้าสู่ระบบผู้ดูแล</h1>
-        <p class="login-note">ใช้บัญชีที่สร้างไว้ใน Firebase Console → Authentication</p>
+        <h1>ກະລຸນາເຂົ້າສູ່ລະບົບ</h1>
+        <p class="login-note">ຫາກບໍ່ມີບັນຊີ ໃຫ້ຕິດຕໍ່ຫາພະແນກໄອທີ</p>
         <form id="login-form" novalidate>
           <label class="field">
-            <span>อีเมล</span>
+            <span>ອີເມວ</span>
             <input type="email" id="login-email" required autocomplete="username">
           </label>
           <label class="field">
-            <span>รหัสผ่าน</span>
+            <span>ລະຫັດຜ່ານ</span>
             <input type="password" id="login-password" required autocomplete="current-password">
           </label>
           <div class="form-actions">
-            <button type="submit" class="btn btn--primary" id="login-submit">เข้าสู่ระบบ</button>
+            <button type="submit" class="btn btn--primary" id="login-submit">ເຂົ້າສູ່ລະບົບ</button>
             <span class="form-status" id="login-status" role="status"></span>
           </div>
         </form>
@@ -58,21 +58,21 @@
 
         <div class="admin-head">
           <div>
-            <h1>แผงควบคุมผู้ดูแล</h1>
-            <p class="admin-user">ล็อกอินเป็น: <b id="admin-email"></b></p>
+            <h1>ແຜງຄວບຄຸມ</h1>
+            <p class="admin-user">ຜູ້ໃຊ້ແມ່ນ: <b id="admin-email"></b></p>
           </div>
           <div class="admin-tabs" role="tablist">
-            <button class="tab-btn is-active" data-tab="departments">จัดการแผนก</button>
-            <button class="tab-btn" data-tab="applications">ใบสมัคร <span class="tab-count" id="app-count"></span></button>
-            <button class="tab-btn" data-tab="settings">ตั้งค่า</button>
+            <button class="tab-btn is-active" data-tab="departments">ຈັດການພະແນກ</button>
+            <button class="tab-btn" data-tab="applications">ໃບສະໝັກວຽກ <span class="tab-count" id="app-count"></span></button>
+            <button class="tab-btn" data-tab="settings">ຕັ້ງຄ່າ</button>
           </div>
         </div>
 
         <!-- ---------- TAB: DEPARTMENTS ---------- -->
         <div id="tab-departments" class="tab-panel">
           <div class="panel-toolbar">
-            <button class="btn btn--primary" id="add-dept-btn">+ เพิ่มแผนกใหม่</button>
-            <button class="btn btn--ghost" id="seed-btn">นำเข้าข้อมูลตั้งต้น (7 แผนก)</button>
+            <button class="btn btn--primary" id="add-dept-btn">+ ເພີ່ມພະແນກການໃໝ່</button>
+            
             <span class="form-status" id="dept-status" role="status"></span>
           </div>
           <div id="dept-admin-list" class="dept-admin-list">
@@ -84,7 +84,7 @@
         <div id="tab-settings" class="tab-panel" hidden>
 
           <div class="settings-block">
-            <h3>อีเมลแจ้งเตือน HR</h3>
+            <h3>ອີເມວທີ່ແຈ້ງເຕືອນເວລາມີໃບສະໝັກໃໝ່</h3>
             <p class="settings-sub">เมื่อมีคนส่งใบสมัคร ระบบจะส่งอีเมลแจ้งไปยังที่อยู่เหล่านี้ (1 บรรทัด = 1 อีเมล)
             — ต้องติดตั้ง Extension "Trigger Email from Firestore" ก่อน อีเมลจึงจะถูกส่งจริง (ดู README)</p>
             <form id="notify-form" novalidate>

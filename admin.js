@@ -150,7 +150,7 @@ function renderDepartmentList(){
           <div class="dept-admin-meta">
             <span>ลำดับ: ${d.order ?? "-"}</span>
             <span>${(d.responsibilities || []).length} ภารกิจ</span>
-            <span>${(d.positions || []).length} ตำแหน่งเปิดรับ</span>
+            <span>เปิดรับ ${(d.positions || []).filter(p => p.open !== false).length} / ${(d.positions || []).length} ตำแหน่ง</span>
           </div>
         </div>
       </div>
@@ -242,7 +242,13 @@ function positionBlockHtml(p = {}){
     <div class="position-edit-block">
       <div class="position-edit-head">
         <span class="position-edit-label">ตำแหน่ง</span>
-        <button type="button" class="btn btn--danger btn--sm" data-remove-position>ลบตำแหน่งนี้</button>
+        <div class="field-block-actions">
+          <label class="check-inline">
+            <input type="checkbox" class="pos-open" ${p.open === false ? "" : "checked"}>
+            <span>เปิดรับสมัคร</span>
+          </label>
+          <button type="button" class="btn btn--danger btn--sm" data-remove-position>ลบตำแหน่งนี้</button>
+        </div>
       </div>
       <div class="field-grid">
         <label class="field">
@@ -319,6 +325,7 @@ $("dept-form").addEventListener("submit", async e => {
 
   const positions = [...positionsContainer.querySelectorAll(".position-edit-block")].map(block => ({
     title: block.querySelector(".pos-title").value.trim(),
+    open: block.querySelector(".pos-open").checked,
     type: block.querySelector(".pos-type").value.trim() || "ເຕັມເວລາ",
     description: block.querySelector(".pos-description").value.trim(),
     duties: linesToArray(block.querySelector(".pos-duties").value)
@@ -422,7 +429,8 @@ function renderApplications(){
           <h3>${escapeHtml(a.name)}</h3>
           <span class="app-status app-status--${escapeHtml(a.status || "new")}">${escapeHtml(STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status || "ใหม่")}</span>
         </div>
-        <p class="app-position">${escapeHtml(a.position)} — ${escapeHtml(a.department)}</p>
+        <p class="app-position">${escapeHtml(a.position)} — ${escapeHtml(a.department)}
+          ${a.advanceProfile ? '<span class="app-status" style="background:var(--brass-soft);color:var(--gold-text);margin-left:8px">ฝากประวัติล่วงหน้า</span>' : ""}</p>
         <div class="app-meta">
           <span>📧 ${escapeHtml(a.email)}</span>
           <span>📞 ${escapeHtml(a.phone)}</span>
