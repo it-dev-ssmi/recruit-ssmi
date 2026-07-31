@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="lo">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +7,9 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="SSMI LOGO FINAL3.png">
+<link rel="apple-touch-icon" href="SSMI LOGO FINAL3.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="admin.css">
 </head>
@@ -16,7 +18,9 @@
   <header class="site-header">
     <div class="wrap header-row">
       <a class="brand" href="index.html">
-        <span class="brand-mark">SS</span>
+        <img src="SSMI LOGO FINAL3.png" alt="SSMI logo" class="brand-logo"
+             onerror="this.remove(); document.querySelector('.brand-mark').hidden = false;">
+        <span class="brand-mark" hidden>SS</span>
         <span class="brand-name">SSMI — Admin</span>
       </a>
       <nav class="header-nav">
@@ -85,28 +89,28 @@
 
           <div class="settings-block">
             <h3>ອີເມວທີ່ແຈ້ງເຕືອນເວລາມີໃບສະໝັກໃໝ່</h3>
-            <p class="settings-sub">เมื่อมีคนส่งใบสมัคร ระบบจะส่งอีเมลแจ้งไปยังที่อยู่เหล่านี้ (1 บรรทัด = 1 อีเมล)
-            — ต้องติดตั้ง Extension "Trigger Email from Firestore" ก่อน อีเมลจึงจะถูกส่งจริง (ดู README)</p>
+            <p class="settings-sub">ເມື່ອມີຄົນສົ່ງໃບສະໝັກ ລະບົບຈະສົ່ງອີເມວແຈ້ງໄປຫາທີ່ຢູ່ເຫຼົ່ານີ້ (1 ແຖວ = 1 ອີເມວ)
+            — ຕ້ອງຕິດຕັ້ງ Extension "Trigger Email from Firestore" ກ່ອນ ອີເມວຈຶ່ງຈະຖືກສົ່ງແທ້ (ເບິ່ງ README)</p>
             <form id="notify-form" novalidate>
               <label class="field">
-                <span>รายชื่ออีเมลผู้รับ</span>
+                <span>ລາຍຊື່ອີເມວຜູ້ຮັບ</span>
                 <textarea id="notify-emails" rows="4" placeholder="admin.hr@ssmilaos.com&#10;manager@ssmilaos.com"></textarea>
               </label>
               <div class="form-actions">
-                <button type="submit" class="btn btn--primary">บันทึกอีเมลแจ้งเตือน</button>
+                <button type="submit" class="btn btn--primary">ບັນທຶກອີເມວແຈ້ງເຕືອນ</button>
                 <span class="form-status" id="notify-status" role="status"></span>
               </div>
             </form>
           </div>
 
           <div class="settings-block">
-            <h3>ช่องกรอกในฟอร์มสมัครงาน</h3>
-            <p class="settings-sub">ช่อง <b>ชื่อ / อีเมล / เบอร์โทรศัพท์</b> เป็นช่องบังคับถาวรของระบบ ลบไม่ได้
-            — ช่องอื่นๆ ด้านล่างนี้ เพิ่ม/ลบ/เรียงลำดับ/ตั้งเป็นช่องบังคับได้ตามต้องการ
-            รองรับทั้งข้อความ ตัวเลือก แนบไฟล์ PDF และแนบรูปภาพ</p>
+            <h3>ຊ່ອງກອກໃນຟອມສະໝັກງານ</h3>
+            <p class="settings-sub">ຊ່ອງ <b>ຊື່ / ອີເມວ / ເບີໂທລະສັບ</b> ເປັນຊ່ອງບັງຄັບຖາວອນຂອງລະບົບ ລຶບບໍ່ໄດ້
+            — ຊ່ອງອື່ນໆລຸ່ມນີ້ ສາມາດເພີ່ມ/ລຶບ/ຈັດລຳດັບ/ຕັ້ງເປັນຊ່ອງບັງຄັບໄດ້ຕາມຕ້ອງການ
+            ຮອງຮັບທັງຂໍ້ຄວາມ ຕົວເລືອກ ແນບໄຟລ໌ PDF ແລະ ແນບຮູບພາບ</p>
             <div class="panel-toolbar">
-              <button type="button" class="btn btn--primary" id="add-form-field-btn">+ เพิ่มช่องกรอก</button>
-              <button type="button" class="btn btn--ghost" id="save-form-fields-btn">บันทึกฟอร์ม</button>
+              <button type="button" class="btn btn--primary" id="add-form-field-btn">+ ເພີ່ມຊ່ອງກອກ</button>
+              <button type="button" class="btn btn--ghost" id="save-form-fields-btn">ບັນທຶກຟອມ</button>
               <span class="form-status" id="form-fields-status" role="status"></span>
             </div>
             <div id="form-fields-container"><!-- rendered by admin.js --></div>
@@ -116,7 +120,7 @@
 
         <div id="tab-applications" class="tab-panel" hidden>
           <div class="panel-toolbar">
-            <button class="btn btn--ghost" id="reload-apps-btn">รีเฟรชรายการ</button>
+            <button class="btn btn--ghost" id="reload-apps-btn">ໂຫຼດຂໍ້ມູນໃໝ່</button>
             <span class="form-status" id="apps-status" role="status"></span>
           </div>
           <div id="apps-list" class="apps-list">
@@ -131,11 +135,11 @@
   <!-- ================= DEPARTMENT EDIT MODAL ================= -->
   <div id="dept-overlay" class="overlay" hidden>
     <div class="modal modal--wide" role="dialog" aria-modal="true" aria-labelledby="dept-modal-title">
-      <button class="modal-close" id="dept-close" aria-label="ปิดหน้าต่างแก้ไขแผนก">✕</button>
+      <button class="modal-close" id="dept-close" aria-label="ປິດໜ້າຕ່າງແກ້ໄຂພະແນກ">✕</button>
 
       <div class="modal-head">
-        <p class="modal-eyebrow">แผนก</p>
-        <h2 id="dept-modal-title">แก้ไขแผนก</h2>
+        <p class="modal-eyebrow">ພະແນກ</p>
+        <h2 id="dept-modal-title">ແກ້ໄຂພະແນກ</h2>
       </div>
 
       <form id="dept-form" novalidate>
@@ -143,40 +147,40 @@
 
         <div class="field-grid">
           <label class="field">
-            <span>รหัสแผนก (สั้นๆ เช่น MKT) <em>*</em></span>
+            <span>ລະຫັດພະແນກ (ສັ້ນໆ ເຊັ່ນ MKT) <em>*</em></span>
             <input type="text" id="dept-code" required maxlength="8" placeholder="MKT">
           </label>
           <label class="field">
-            <span>ลำดับการแสดงผล</span>
+            <span>ລຳດັບການສະແດງຜົນ</span>
             <input type="number" id="dept-order" min="0" step="1" placeholder="1">
           </label>
         </div>
 
         <label class="field">
-          <span>ชื่อแผนก <em>*</em></span>
+          <span>ຊື່ພະແນກ <em>*</em></span>
           <input type="text" id="dept-name" required placeholder="ຝ່າຍການຕະຫຼາດ">
         </label>
 
         <label class="field">
-          <span>คำอธิบายภารกิจของแผนก (mission)</span>
+          <span>ຄຳອະທິບາຍພາລະກິດຂອງພະແນກ (mission)</span>
           <textarea id="dept-mission" rows="3"></textarea>
         </label>
 
         <label class="field">
-          <span>ภาระหน้าที่หลักของแผนก (1 บรรทัด = 1 ข้อ)</span>
-          <textarea id="dept-responsibilities" rows="5" placeholder="วางแผนการตลาด...&#10;ให้บริการลูกค้า..."></textarea>
+          <span>ພາລະໜ້າທີ່ຫຼັກຂອງພະແນກ (1 ແຖວ = 1 ຂໍ້)</span>
+          <textarea id="dept-responsibilities" rows="5" placeholder="ວາງແຜນການຕະຫຼາດ...&#10;ໃຫ້ບໍລິການລູກຄ້າ..."></textarea>
         </label>
 
         <div class="positions-editor">
           <div class="positions-editor-head">
-            <h4>ตำแหน่งที่เปิดรับในแผนกนี้</h4>
-            <button type="button" class="btn btn--ghost btn--sm" id="add-position-btn">+ เพิ่มตำแหน่ง</button>
+            <h4>ຕຳແໜ່ງທີ່ເປີດຮັບໃນພະແນກນີ້</h4>
+            <button type="button" class="btn btn--ghost btn--sm" id="add-position-btn">+ ເພີ່ມຕຳແໜ່ງ</button>
           </div>
           <div id="positions-container"><!-- position blocks --></div>
         </div>
 
         <div class="form-actions">
-          <button type="submit" class="btn btn--primary" id="dept-save">บันทึกแผนก</button>
+          <button type="submit" class="btn btn--primary" id="dept-save">ບັນທຶກພະແນກ</button>
           <span class="form-status" id="dept-form-status" role="status"></span>
         </div>
       </form>
@@ -185,8 +189,8 @@
 
   <footer class="site-footer">
     <div class="wrap footer-row">
-      <p>© <span id="year"></span> SSMI ສິນຊັບເມືອງເໜືອ — หน้าสำหรับผู้ดูแลระบบเท่านั้น</p>
-      <p class="footer-note">ข้อมูลที่แก้ไขจะแสดงบนหน้าเว็บสาธารณะทันที</p>
+      <p>© <span id="year"></span> SSMI ສິນຊັບເມືອງເໜືອ — ໜ້ານີ້ສຳລັບຜູ້ດູແລລະບົບເທົ່ານັ້ນ</p>
+      <p class="footer-note">ຂໍ້ມູນທີ່ແກ້ໄຂຈະສະແດງຢູ່ໜ້າເວັບສາທາລະນະທັນທີ</p>
     </div>
   </footer>
 

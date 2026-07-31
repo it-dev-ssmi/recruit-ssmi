@@ -11,28 +11,28 @@
    ========================================================================== */
 
 export const FIELD_TYPES = [
-  { value: "text",     label: "ข้อความสั้น" },
-  { value: "textarea", label: "ข้อความยาว (หลายบรรทัด)" },
-  { value: "number",   label: "ตัวเลข" },
-  { value: "date",     label: "วันที่" },
-  { value: "url",      label: "ลิงก์ (URL)" },
-  { value: "select",   label: "ตัวเลือก (dropdown)" },
-  { value: "file",     label: "แนบไฟล์ PDF" },
-  { value: "image",    label: "แนบรูปภาพ" }
+  { value: "text",     label: "ຂໍ້ຄວາມສັ້ນ" },
+  { value: "textarea", label: "ຂໍ້ຄວາມຍາວ (ຫຼາຍແຖວ)" },
+  { value: "number",   label: "ຕົວເລກ" },
+  { value: "date",     label: "ວັນທີ" },
+  { value: "url",      label: "ລິ້ງ (URL)" },
+  { value: "select",   label: "ຕົວເລືອກ (dropdown)" },
+  { value: "file",     label: "ແນບໄຟລ໌ PDF" },
+  { value: "image",    label: "ແນບຮູບພາບ" }
 ];
 
 export const DEFAULT_FORM_FIELDS = [
   {
     id: "experience",
-    label: "ประสบการณ์ทำงาน (ปี)",
+    label: "ປະສົບການເຮັດວຽກ (ປີ)",
     type: "text",
     required: false,
-    placeholder: "เช่น 2 ปี",
+    placeholder: "ເຊັ່ນ 2 ປີ",
     options: []
   },
   {
     id: "portfolio",
-    label: "ลิงก์ประวัติ / พอร์ตโฟลิโอ",
+    label: "ລິ້ງປະຫວັດ / ພອດໂຟລິໂອ",
     type: "url",
     required: false,
     placeholder: "https://",
@@ -40,15 +40,15 @@ export const DEFAULT_FORM_FIELDS = [
   },
   {
     id: "message",
-    label: "เหตุผลที่สนใจตำแหน่งนี้",
+    label: "ເຫດຜົນທີ່ສົນໃຈຕຳແໜ່ງນີ້",
     type: "textarea",
     required: false,
-    placeholder: "เล่าสั้นๆ ว่าทำไมคุณเหมาะกับตำแหน่งนี้",
+    placeholder: "ເລົ່າສັ້ນໆ ວ່າເປັນຫຍັງທ່ານເໝາະກັບຕຳແໜ່ງນີ້",
     options: []
   },
   {
     id: "resume",
-    label: "แนบเรซูเม่ (PDF, ไม่เกิน 5MB)",
+    label: "ແນບເຣຊູເມ (PDF, ບໍ່ເກີນ 5MB)",
     type: "file",
     required: false,
     placeholder: "",

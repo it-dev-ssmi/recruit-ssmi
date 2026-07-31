@@ -49,7 +49,7 @@ const logoutBtn = $("logout-btn");
 
 if(FIREBASE_NOT_CONFIGURED){
   loginView.hidden = false;
-  setStatus($("login-status"), "ยังไม่ได้ตั้งค่า Firebase — แก้ไข firebase-config.js ก่อน (ดู README.md)", "err");
+  setStatus($("login-status"), "ຍັງບໍ່ໄດ້ຕັ້ງຄ່າ Firebase — ແກ້ໄຂ firebase-config.js ກ່ອນ (ເບິ່ງ README.md)", "err");
 }
 
 onAuthStateChanged(auth, user => {
@@ -58,7 +58,7 @@ onAuthStateChanged(auth, user => {
     loginView.hidden = true;
     adminView.hidden = false;
     logoutBtn.hidden = false;
-    $("admin-email").textContent = user.email || "(ไม่ทราบอีเมล)";
+    $("admin-email").textContent = user.email || "(ບໍ່ຮູ້ອີເມວ)";
     loadDepartments();
     loadApplications();
     loadSettings();
@@ -75,23 +75,23 @@ $("login-form").addEventListener("submit", async e => {
   const email = $("login-email").value.trim();
   const password = $("login-password").value;
   if(!email || !password){
-    setStatus($("login-status"), "กรุณากรอกอีเมลและรหัสผ่าน", "err");
+    setStatus($("login-status"), "ກະລຸນາປ້ອນອີເມວ ແລະ ລະຫັດຜ່ານ", "err");
     return;
   }
   $("login-submit").disabled = true;
-  setStatus($("login-status"), "กำลังเข้าสู่ระบบ...");
+  setStatus($("login-status"), "ກຳລັງເຂົ້າສູ່ລະບົບ...");
   try {
     await signInWithEmailAndPassword(auth, email, password);
     setStatus($("login-status"), "");
   } catch (err){
     console.error(err);
     const msg = {
-      "auth/invalid-credential": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
-      "auth/user-not-found": "ไม่พบบัญชีนี้ในระบบ",
-      "auth/wrong-password": "รหัสผ่านไม่ถูกต้อง",
-      "auth/too-many-requests": "ลองผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่",
-      "auth/operation-not-allowed": "ยังไม่ได้เปิดใช้งาน Email/Password ใน Firebase Console → Authentication"
-    }[err.code] || "เข้าสู่ระบบไม่สำเร็จ: " + err.code;
+      "auth/invalid-credential": "ອີເມວ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ",
+      "auth/user-not-found": "ບໍ່ພົບບັນຊີນີ້ໃນລະບົບ",
+      "auth/wrong-password": "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ",
+      "auth/too-many-requests": "ລອງຜິດຫຼາຍຄັ້ງເກີນໄປ ກະລຸນາລໍຖ້າສັກຄູ່ແລ້ວລອງໃໝ່",
+      "auth/operation-not-allowed": "ຍັງບໍ່ໄດ້ເປີດໃຊ້ Email/Password ໃນ Firebase Console → Authentication"
+    }[err.code] || "ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ: " + err.code;
     setStatus($("login-status"), msg, "err");
   } finally {
     $("login-submit").disabled = false;
@@ -119,14 +119,14 @@ let departments = [];
 
 async function loadDepartments(){
   const listEl = $("dept-admin-list");
-  listEl.innerHTML = `<p class="admin-loading">กำลังโหลดข้อมูลแผนก...</p>`;
+  listEl.innerHTML = `<p class="admin-loading">ກຳລັງໂຫຼດຂໍ້ມູນພະແນກ...</p>`;
   try {
     const snap = await getDocs(query(collection(db, DEPARTMENTS_COLLECTION), orderBy("order")));
     departments = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
     renderDepartmentList();
   } catch (err){
     console.error(err);
-    listEl.innerHTML = `<p class="admin-error">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(err.message)}</p>`;
+    listEl.innerHTML = `<p class="admin-error">ໂຫຼດຂໍ້ມູນບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
   }
 }
 
@@ -135,8 +135,8 @@ function renderDepartmentList(){
   if(!departments.length){
     listEl.innerHTML = `
       <div class="admin-empty">
-        <p>ยังไม่มีข้อมูลแผนกใน Firestore</p>
-        <p class="admin-empty-sub">กด <b>"นำเข้าข้อมูลตั้งต้น"</b> เพื่อนำแผนกทั้ง ${DEFAULT_DEPARTMENTS.length} แผนกจากไฟล์เดิมขึ้นระบบ แล้วค่อยแก้ไขต่อ หรือกด "+ เพิ่มแผนกใหม่" เพื่อเริ่มจากศูนย์</p>
+        <p>ຍັງບໍ່ມີຂໍ້ມູນພະແນກໃນ Firestore</p>
+        <p class="admin-empty-sub">ໜ້າເວັບສາທາລະນະຈະສະແດງຂໍ້ມູນຕັ້ງຕົ້ນ (${DEFAULT_DEPARTMENTS.length} ພະແນກ) ໄປພາງກ່ອນ ຈົນກວ່າຈະມີຂໍ້ມູນແທ້ໃນລະບົບ — ກົດ "+ ເພີ່ມພະແນກການໃໝ່" ດ້ານເທິງເພື່ອເລີ່ມ</p>
       </div>`;
     return;
   }
@@ -145,20 +145,20 @@ function renderDepartmentList(){
       <div class="dept-admin-main">
         <span class="dept-code">${escapeHtml(d.code || "—")}</span>
         <div class="dept-admin-info">
-          <h3>${escapeHtml(d.name || "(ไม่มีชื่อ)")}</h3>
+          <h3>${escapeHtml(d.name || "(ບໍ່ມີຊື່)")}</h3>
           <p>${escapeHtml(d.mission || "")}</p>
           <div class="dept-admin-meta">
-            <span>ลำดับ: ${d.order ?? "-"}</span>
-            <span>${(d.responsibilities || []).length} ภารกิจ</span>
-            <span>เปิดรับ ${(d.positions || []).filter(p => p.open !== false).length} / ${(d.positions || []).length} ตำแหน่ง</span>
+            <span>ລຳດັບ: ${d.order ?? "-"}</span>
+            <span>${(d.responsibilities || []).length} ພາລະກິດ</span>
+            <span>ເປີດຮັບ ${(d.positions || []).filter(p => p.open !== false).length} / ${(d.positions || []).length} ຕຳແໜ່ງ</span>
           </div>
         </div>
       </div>
       <div class="dept-admin-actions">
-        <button class="btn btn--ghost btn--sm" data-move="up" ${idx === 0 ? "disabled" : ""} title="เลื่อนขึ้น">↑</button>
-        <button class="btn btn--ghost btn--sm" data-move="down" ${idx === departments.length - 1 ? "disabled" : ""} title="เลื่อนลง">↓</button>
-        <button class="btn btn--ghost btn--sm" data-action="edit">แก้ไข</button>
-        <button class="btn btn--danger btn--sm" data-action="delete">ลบ</button>
+        <button class="btn btn--ghost btn--sm" data-move="up" ${idx === 0 ? "disabled" : ""} title="ເລື່ອນຂຶ້ນ">↑</button>
+        <button class="btn btn--ghost btn--sm" data-move="down" ${idx === departments.length - 1 ? "disabled" : ""} title="ເລື່ອນລົງ">↓</button>
+        <button class="btn btn--ghost btn--sm" data-action="edit">ແກ້ໄຂ</button>
+        <button class="btn btn--danger btn--sm" data-action="delete">ລຶບ</button>
       </div>
     </div>
   `).join("");
@@ -186,22 +186,22 @@ async function moveDepartment(docId, dir){
     await loadDepartments();
   } catch (err){
     console.error(err);
-    setStatus($("dept-status"), "สลับลำดับไม่สำเร็จ: " + err.message, "err");
+    setStatus($("dept-status"), "ສະຫຼັບລຳດັບບໍ່ສຳເລັດ: " + err.message, "err");
   }
 }
 
 async function deleteDepartment(docId){
   const d = departments.find(x => x.docId === docId);
   if(!d) return;
-  const ok = confirm(`ยืนยันลบแผนก "${d.name}" ?\n\nตำแหน่งทั้งหมด ${(d.positions || []).length} ตำแหน่งในแผนกนี้จะถูกลบไปด้วย และหน้าเว็บสาธารณะจะไม่แสดงแผนกนี้อีก\n(ใบสมัครเก่าที่เคยส่งเข้ามาจะไม่ถูกลบ)`);
+  const ok = confirm(`ຢືນຢັນລຶບພະແນກ "${d.name}" ?\n\nຕຳແໜ່ງທັງໝົດ ${(d.positions || []).length} ຕຳແໜ່ງໃນພະແນກນີ້ຈະຖືກລຶບໄປນຳ ແລະ ໜ້າເວັບສາທາລະນະຈະບໍ່ສະແດງພະແນກນີ້ອີກ\n(ໃບສະໝັກເກົ່າທີ່ເຄີຍສົ່ງເຂົ້າມາຈະບໍ່ຖືກລຶບ)`);
   if(!ok) return;
   try {
     await deleteDoc(doc(db, DEPARTMENTS_COLLECTION, docId));
-    setStatus($("dept-status"), `ลบแผนก "${d.name}" เรียบร้อย`, "ok");
+    setStatus($("dept-status"), `ລຶບພະແນກ "${d.name}" ຮຽບຮ້ອຍ`, "ok");
     await loadDepartments();
   } catch (err){
     console.error(err);
-    setStatus($("dept-status"), "ลบไม่สำเร็จ: " + err.message, "err");
+    setStatus($("dept-status"), "ລຶບບໍ່ສຳເລັດ: " + err.message, "err");
   }
 }
 
@@ -219,31 +219,31 @@ function positionBlockHtml(p = {}){
   return `
     <div class="position-edit-block">
       <div class="position-edit-head">
-        <span class="position-edit-label">ตำแหน่ง</span>
+        <span class="position-edit-label">ຕຳແໜ່ງ</span>
         <div class="field-block-actions">
           <label class="check-inline">
             <input type="checkbox" class="pos-open" ${p.open === false ? "" : "checked"}>
-            <span>เปิดรับสมัคร</span>
+            <span>ເປີດຮັບສະໝັກ</span>
           </label>
-          <button type="button" class="btn btn--danger btn--sm" data-remove-position>ลบตำแหน่งนี้</button>
+          <button type="button" class="btn btn--danger btn--sm" data-remove-position>ລຶບຕຳແໜ່ງນີ້</button>
         </div>
       </div>
       <div class="field-grid">
         <label class="field">
-          <span>ชื่อตำแหน่ง <em>*</em></span>
+          <span>ຊື່ຕຳແໜ່ງ <em>*</em></span>
           <input type="text" class="pos-title" value="${escapeHtml(p.title || "")}" placeholder="ພະນັກງານ...">
         </label>
         <label class="field">
-          <span>ประเภท</span>
+          <span>ປະເພດ</span>
           <input type="text" class="pos-type" value="${escapeHtml(p.type || "ເຕັມເວລາ")}" placeholder="ເຕັມເວລາ / ສັນຍາຈ້າງ">
         </label>
       </div>
       <label class="field">
-        <span>คำอธิบายตำแหน่ง</span>
+        <span>ຄຳອະທິບາຍຕຳແໜ່ງ</span>
         <textarea class="pos-description" rows="2">${escapeHtml(p.description || "")}</textarea>
       </label>
       <label class="field">
-        <span>ภาระหน้าที่โดยละเอียด (1 บรรทัด = 1 ข้อ)</span>
+        <span>ພາລະໜ້າທີ່ໂດຍລະອຽດ (1 ແຖວ = 1 ຂໍ້)</span>
         <textarea class="pos-duties" rows="5">${escapeHtml(duties)}</textarea>
       </label>
     </div>
@@ -254,7 +254,7 @@ function addPositionBlock(p){
   positionsContainer.insertAdjacentHTML("beforeend", positionBlockHtml(p));
   const block = positionsContainer.lastElementChild;
   block.querySelector("[data-remove-position]").addEventListener("click", () => {
-    if(confirm("ลบตำแหน่งนี้ออกจากฟอร์ม? (จะมีผลเมื่อกดบันทึกแผนก)")) block.remove();
+    if(confirm("ລຶບຕຳແໜ່ງນີ້ອອກຈາກຟອມ? (ຈະມີຜົນເມື່ອກົດບັນທຶກພະແນກ)")) block.remove();
   });
 }
 
@@ -262,7 +262,7 @@ $("add-position-btn").addEventListener("click", () => addPositionBlock({}));
 
 function openDeptModal(docId = null){
   const d = docId ? departments.find(x => x.docId === docId) : null;
-  $("dept-modal-title").textContent = d ? `แก้ไขแผนก: ${d.name}` : "เพิ่มแผนกใหม่";
+  $("dept-modal-title").textContent = d ? `ແກ້ໄຂພະແນກ: ${d.name}` : "ເພີ່ມພະແນກໃໝ່";
   $("dept-doc-id").value = d ? d.docId : "";
   $("dept-code").value = d?.code || "";
   $("dept-name").value = d?.name || "";
@@ -297,7 +297,7 @@ $("dept-form").addEventListener("submit", async e => {
   const code = $("dept-code").value.trim();
   const name = $("dept-name").value.trim();
   if(!code || !name){
-    setStatus($("dept-form-status"), "กรุณากรอกรหัสแผนกและชื่อแผนก", "err");
+    setStatus($("dept-form-status"), "ກະລຸນາປ້ອນລະຫັດພະແນກ ແລະ ຊື່ພະແນກ", "err");
     return;
   }
 
@@ -319,19 +319,19 @@ $("dept-form").addEventListener("submit", async e => {
   };
 
   $("dept-save").disabled = true;
-  setStatus($("dept-form-status"), "กำลังบันทึก...");
+  setStatus($("dept-form-status"), "ກຳລັງບັນທຶກ...");
   try {
     if(docId){
       await setDoc(doc(db, DEPARTMENTS_COLLECTION, docId), data);
     } else {
       await addDoc(collection(db, DEPARTMENTS_COLLECTION), data);
     }
-    setStatus($("dept-form-status"), "บันทึกเรียบร้อย", "ok");
+    setStatus($("dept-form-status"), "ບັນທຶກຮຽບຮ້ອຍ", "ok");
     await loadDepartments();
     setTimeout(closeDeptModal, 700);
   } catch (err){
     console.error(err);
-    setStatus($("dept-form-status"), "บันทึกไม่สำเร็จ: " + err.message, "err");
+    setStatus($("dept-form-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
   } finally {
     $("dept-save").disabled = false;
   }
@@ -341,17 +341,17 @@ $("dept-form").addEventListener("submit", async e => {
    APPLICATIONS — ดูใบสมัคร / เปลี่ยนสถานะ / ลบ
    ========================================================================== */
 const STATUS_OPTIONS = [
-  { value: "new",         label: "ใหม่" },
-  { value: "reviewing",   label: "กำลังพิจารณา" },
-  { value: "interviewed", label: "สัมภาษณ์แล้ว" },
-  { value: "accepted",    label: "รับเข้าทำงาน" },
-  { value: "rejected",    label: "ไม่ผ่าน" }
+  { value: "new",         label: "ໃໝ່" },
+  { value: "reviewing",   label: "ກຳລັງພິຈາລະນາ" },
+  { value: "interviewed", label: "ສຳພາດແລ້ວ" },
+  { value: "accepted",    label: "ຮັບເຂົ້າເຮັດວຽກ" },
+  { value: "rejected",    label: "ບໍ່ຜ່ານ" }
 ];
 let applications = [];
 
 async function loadApplications(){
   const listEl = $("apps-list");
-  listEl.innerHTML = `<p class="admin-loading">กำลังโหลดใบสมัคร...</p>`;
+  listEl.innerHTML = `<p class="admin-loading">ກຳລັງໂຫຼດໃບສະໝັກ...</p>`;
   try {
     const snap = await getDocs(query(collection(db, APPLICATIONS_COLLECTION), orderBy("submittedAt", "desc")));
     applications = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
@@ -359,13 +359,13 @@ async function loadApplications(){
     renderApplications();
   } catch (err){
     console.error(err);
-    listEl.innerHTML = `<p class="admin-error">โหลดใบสมัครไม่สำเร็จ: ${escapeHtml(err.message)}</p>`;
+    listEl.innerHTML = `<p class="admin-error">ໂຫຼດໃບສະໝັກບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
   }
 }
 
 function formatDate(ts){
   if(!ts?.toDate) return "-";
-  return ts.toDate().toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+  return ts.toDate().toLocaleString("lo-LA", { dateStyle: "medium", timeStyle: "short" });
 }
 
 
@@ -373,7 +373,7 @@ function formatDate(ts){
 function renderAnswers(a){
   const entries = Object.entries(a.answers || {}).filter(([, v]) => v);
   if(!entries.length) return "";
-  return `<details class="app-message"><summary>ข้อมูลเพิ่มเติม (${entries.length} รายการ)</summary>
+  return `<details class="app-message"><summary>ຂໍ້ມູນເພີ່ມເຕີມ (${entries.length} ລາຍການ)</summary>
     <dl class="app-answers">${entries.map(([k, v]) =>
       `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join("")}</dl>
   </details>`;
@@ -386,18 +386,18 @@ function renderAttachmentLinks(a){
     links.push(`<a href="${escapeHtml(att.url)}" target="_blank" rel="noopener" class="btn btn--ghost btn--sm">${escapeHtml(att.label)} ↗</a>`);
   });
   if(a.resumeUrl && !(a.attachments || []).length){
-    links.push(`<a href="${escapeHtml(a.resumeUrl)}" target="_blank" rel="noopener" class="btn btn--ghost btn--sm">เปิดเรซูเม่ (PDF) ↗</a>`);
+    links.push(`<a href="${escapeHtml(a.resumeUrl)}" target="_blank" rel="noopener" class="btn btn--ghost btn--sm">ເປີດເຣຊູເມ (PDF) ↗</a>`);
   }
   if(a.portfolioUrl){
-    links.push(`<a href="${escapeHtml(a.portfolioUrl)}" target="_blank" rel="noopener" class="btn btn--ghost btn--sm">พอร์ตโฟลิโอ ↗</a>`);
+    links.push(`<a href="${escapeHtml(a.portfolioUrl)}" target="_blank" rel="noopener" class="btn btn--ghost btn--sm">ພອດໂຟລິໂອ ↗</a>`);
   }
-  return links.length ? links.join("") : `<span class="app-nolink">ไม่มีไฟล์แนบ</span>`;
+  return links.length ? links.join("") : `<span class="app-nolink">ບໍ່ມີໄຟລ໌ແນບ</span>`;
 }
 
 function renderApplications(){
   const listEl = $("apps-list");
   if(!applications.length){
-    listEl.innerHTML = `<div class="admin-empty"><p>ยังไม่มีใบสมัครเข้ามา</p></div>`;
+    listEl.innerHTML = `<div class="admin-empty"><p>ຍັງບໍ່ມີໃບສະໝັກເຂົ້າມາ</p></div>`;
     return;
   }
   listEl.innerHTML = applications.map(a => `
@@ -405,18 +405,18 @@ function renderApplications(){
       <div class="app-card-main">
         <div class="app-card-top">
           <h3>${escapeHtml(a.name)}</h3>
-          <span class="app-status app-status--${escapeHtml(a.status || "new")}">${escapeHtml(STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status || "ใหม่")}</span>
+          <span class="app-status app-status--${escapeHtml(a.status || "new")}">${escapeHtml(STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status || "ໃໝ່")}</span>
         </div>
         <p class="app-position">${escapeHtml(a.position)} — ${escapeHtml(a.department)}
-          ${a.advanceProfile ? '<span class="app-status" style="background:var(--brass-soft);color:var(--gold-text);margin-left:8px">ฝากประวัติล่วงหน้า</span>' : ""}</p>
+          ${a.advanceProfile ? '<span class="app-status" style="background:var(--brass-soft);color:var(--gold-text);margin-left:8px">ຝາກປະຫວັດລ່ວງໜ້າ</span>' : ""}</p>
         <div class="app-meta">
           <span>📧 ${escapeHtml(a.email)}</span>
           <span>📞 ${escapeHtml(a.phone)}</span>
           <span>🕐 ${formatDate(a.submittedAt)}</span>
-          ${a.experience ? `<span>ประสบการณ์: ${escapeHtml(a.experience)}</span>` : ""}
+          ${a.experience ? `<span>ປະສົບການ: ${escapeHtml(a.experience)}</span>` : ""}
         </div>
         ${renderAnswers(a)}
-        ${a.coverMessage ? `<details class="app-message"><summary>ข้อความจากผู้สมัคร</summary><p>${escapeHtml(a.coverMessage)}</p></details>` : ""}
+        ${a.coverMessage ? `<details class="app-message"><summary>ຂໍ້ຄວາມຈາກຜູ້ສະໝັກ</summary><p>${escapeHtml(a.coverMessage)}</p></details>` : ""}
         <div class="app-links">
           ${renderAttachmentLinks(a)}
         </div>
@@ -425,7 +425,7 @@ function renderApplications(){
         <select class="app-status-select">
           ${STATUS_OPTIONS.map(s => `<option value="${s.value}" ${s.value === (a.status || "new") ? "selected" : ""}>${s.label}</option>`).join("")}
         </select>
-        <button class="btn btn--danger btn--sm" data-action="delete-app">ลบใบสมัคร</button>
+        <button class="btn btn--danger btn--sm" data-action="delete-app">ລຶບໃບສະໝັກ</button>
       </div>
     </div>
   `).join("");
@@ -435,18 +435,18 @@ function renderApplications(){
     card.querySelector(".app-status-select").addEventListener("change", async e => {
       try {
         await updateDoc(doc(db, APPLICATIONS_COLLECTION, docId), { status: e.target.value });
-        setStatus($("apps-status"), "อัปเดตสถานะเรียบร้อย", "ok");
+        setStatus($("apps-status"), "ອັບເດດສະຖານະຮຽບຮ້ອຍ", "ok");
         const a = applications.find(x => x.docId === docId);
         if(a) a.status = e.target.value;
         renderApplications();
       } catch (err){
         console.error(err);
-        setStatus($("apps-status"), "อัปเดตไม่สำเร็จ: " + err.message, "err");
+        setStatus($("apps-status"), "ອັບເດດບໍ່ສຳເລັດ: " + err.message, "err");
       }
     });
     card.querySelector('[data-action="delete-app"]').addEventListener("click", async () => {
       const a = applications.find(x => x.docId === docId);
-      if(!confirm(`ยืนยันลบใบสมัครของ "${a?.name}" ?\nไฟล์เรซูเม่ที่แนบมา (ถ้ามี) จะถูกลบไปด้วย และกู้คืนไม่ได้`)) return;
+      if(!confirm(`ຢືນຢັນລຶບໃບສະໝັກຂອງ "${a?.name}" ?\nໄຟລ໌ເຣຊູເມທີ່ແນບມາ (ຖ້າມີ) ຈະຖືກລຶບໄປນຳ ແລະ ກູ້ຄືນບໍ່ໄດ້`)) return;
       try {
         const paths = [
           ...(a?.attachments || []).map(att => att.path),
@@ -457,11 +457,11 @@ function renderApplications(){
           catch (e){ console.warn("ลบไฟล์แนบไม่ได้ (อาจถูกลบไปแล้ว):", p, e); }
         }
         await deleteDoc(doc(db, APPLICATIONS_COLLECTION, docId));
-        setStatus($("apps-status"), "ลบใบสมัครเรียบร้อย", "ok");
+        setStatus($("apps-status"), "ລຶບໃບສະໝັກຮຽບຮ້ອຍ", "ok");
         await loadApplications();
       } catch (err){
         console.error(err);
-        setStatus($("apps-status"), "ลบไม่สำเร็จ: " + err.message, "err");
+        setStatus($("apps-status"), "ລຶບບໍ່ສຳເລັດ: " + err.message, "err");
       }
     });
   });
@@ -493,7 +493,7 @@ async function loadSettings(){
     renderFormFields();
   } catch (err){
     console.error(err);
-    setStatus($("notify-status"), "โหลดการตั้งค่าไม่สำเร็จ: " + err.message, "err");
+    setStatus($("notify-status"), "ໂຫຼດການຕັ້ງຄ່າບໍ່ສຳເລັດ: " + err.message, "err");
   }
 }
 
@@ -504,19 +504,19 @@ $("notify-form").addEventListener("submit", async e => {
     .split("\n").map(s => s.trim()).filter(Boolean);
   const bad = emails.find(em => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em));
   if(bad){
-    setStatus($("notify-status"), `รูปแบบอีเมลไม่ถูกต้อง: ${bad}`, "err");
+    setStatus($("notify-status"), `ຮູບແບບອີເມວບໍ່ຖືກຕ້ອງ: ${bad}`, "err");
     return;
   }
   if(!emails.length){
-    setStatus($("notify-status"), "กรุณาใส่อีเมลอย่างน้อย 1 รายการ", "err");
+    setStatus($("notify-status"), "ກະລຸນາໃສ່ອີເມວຢ່າງໜ້ອຍ 1 ລາຍການ", "err");
     return;
   }
   try {
     await setDoc(doc(db, SETTINGS_COLLECTION, "notifications"), { emails });
-    setStatus($("notify-status"), `บันทึกเรียบร้อย (${emails.length} อีเมล) — ใบสมัครใหม่จะแจ้งไปยังอีเมลชุดนี้`, "ok");
+    setStatus($("notify-status"), `ບັນທຶກຮຽບຮ້ອຍ (${emails.length} ອີເມວ) — ໃບສະໝັກໃໝ່ຈະແຈ້ງໄປຫາອີເມວຊຸດນີ້`, "ok");
   } catch (err){
     console.error(err);
-    setStatus($("notify-status"), "บันทึกไม่สำเร็จ: " + err.message, "err");
+    setStatus($("notify-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
   }
 });
 
@@ -530,39 +530,39 @@ function fieldBlockHtml(f, idx, total){
   return `
     <div class="position-edit-block form-field-block" data-idx="${idx}">
       <div class="position-edit-head">
-        <span class="position-edit-label">ช่องกรอกที่ ${idx + 1}</span>
+        <span class="position-edit-label">ຊ່ອງກອກທີ ${idx + 1}</span>
         <div class="field-block-actions">
           <button type="button" class="btn btn--ghost btn--sm" data-ff-move="up" ${idx === 0 ? "disabled" : ""}>↑</button>
           <button type="button" class="btn btn--ghost btn--sm" data-ff-move="down" ${idx === total - 1 ? "disabled" : ""}>↓</button>
-          <button type="button" class="btn btn--danger btn--sm" data-ff-remove>ลบช่องนี้</button>
+          <button type="button" class="btn btn--danger btn--sm" data-ff-remove>ລຶບຊ່ອງນີ້</button>
         </div>
       </div>
       <div class="field-grid">
         <label class="field">
-          <span>ชื่อช่อง (แสดงให้ผู้สมัครเห็น) <em>*</em></span>
-          <input type="text" class="ff-label" value="${escapeHtml(f.label || "")}" placeholder="เช่น ระดับการศึกษา">
+          <span>ຊື່ຊ່ອງ (ສະແດງໃຫ້ຜູ້ສະໝັກເຫັນ) <em>*</em></span>
+          <input type="text" class="ff-label" value="${escapeHtml(f.label || "")}" placeholder="ເຊັ່ນ ລະດັບການສຶກສາ">
         </label>
         <label class="field">
-          <span>ประเภทช่อง</span>
+          <span>ປະເພດຊ່ອງ</span>
           <select class="ff-type">${typeOpts}</select>
         </label>
       </div>
       <div class="field-grid">
         <label class="field">
-          <span>ข้อความตัวอย่างในช่อง (placeholder)</span>
+          <span>ຂໍ້ຄວາມຕົວຢ່າງໃນຊ່ອງ (placeholder)</span>
           <input type="text" class="ff-placeholder" value="${escapeHtml(f.placeholder || "")}">
         </label>
         <label class="field field--check">
           <span>&nbsp;</span>
           <label class="check-inline">
             <input type="checkbox" class="ff-required" ${f.required ? "checked" : ""}>
-            <span>บังคับกรอก</span>
+            <span>ບັງຄັບກອກ</span>
           </label>
         </label>
       </div>
       <label class="field ff-options-wrap" ${isSelect ? "" : "hidden"}>
-        <span>ตัวเลือก (1 บรรทัด = 1 ตัวเลือก) — ใช้กับประเภท "ตัวเลือก" เท่านั้น</span>
-        <textarea class="ff-options" rows="3" placeholder="ปริญญาตรี&#10;ปริญญาโท">${escapeHtml((f.options || []).join("\n"))}</textarea>
+        <span>ຕົວເລືອກ (1 ແຖວ = 1 ຕົວເລືອກ) — ໃຊ້ກັບປະເພດ "ຕົວເລືອກ" ເທົ່ານັ້ນ</span>
+        <textarea class="ff-options" rows="3" placeholder="ປະລິນຍາຕີ&#10;ປະລິນຍາໂທ">${escapeHtml((f.options || []).join("\n"))}</textarea>
       </label>
     </div>
   `;
@@ -571,12 +571,12 @@ function fieldBlockHtml(f, idx, total){
 function renderFormFields(){
   formFieldsContainer.innerHTML = formFields.length
     ? formFields.map((f, i) => fieldBlockHtml(f, i, formFields.length)).join("")
-    : `<div class="admin-empty"><p>ยังไม่มีช่องกรอกเพิ่มเติม</p><p class="admin-empty-sub">ฟอร์มจะเหลือเฉพาะ ชื่อ / อีเมล / เบอร์โทรศัพท์ — กด "+ เพิ่มช่องกรอก" เพื่อเพิ่ม</p></div>`;
+    : `<div class="admin-empty"><p>ຍັງບໍ່ມີຊ່ອງກອກເພີ່ມເຕີມ</p><p class="admin-empty-sub">ຟອມຈະເຫຼືອສະເພາະ ຊື່ / ອີເມວ / ເບີໂທລະສັບ — ກົດ "+ ເພີ່ມຊ່ອງກອກ" ເພື່ອເພີ່ມ</p></div>`;
 
   formFieldsContainer.querySelectorAll(".form-field-block").forEach(block => {
     const idx = Number(block.dataset.idx);
     block.querySelector("[data-ff-remove]").addEventListener("click", () => {
-      if(!confirm(`ลบช่อง "${formFields[idx].label}" ? (มีผลเมื่อกด "บันทึกฟอร์ม")`)) return;
+      if(!confirm(`ລຶບຊ່ອງ "${formFields[idx].label}" ? (ມີຜົນເມື່ອກົດ "ບັນທຶກຟອມ")`)) return;
       collectFormFieldsFromDom();
       formFields.splice(idx, 1);
       renderFormFields();
@@ -630,20 +630,20 @@ $("save-form-fields-btn").addEventListener("click", async () => {
   collectFormFieldsFromDom();
   const empty = formFields.find(f => !f.label);
   if(empty){
-    setStatus($("form-fields-status"), "ทุกช่องต้องมี \"ชื่อช่อง\" — กรอกให้ครบก่อนบันทึก", "err");
+    setStatus($("form-fields-status"), "ທຸກຊ່ອງຕ້ອງມີ \"ຊື່ຊ່ອງ\" — ກອກໃຫ້ຄົບກ່ອນບັນທຶກ", "err");
     return;
   }
   const badSelect = formFields.find(f => f.type === "select" && !f.options.length);
   if(badSelect){
-    setStatus($("form-fields-status"), `ช่อง "${badSelect.label}" เป็นประเภทตัวเลือก แต่ยังไม่ได้ใส่ตัวเลือก`, "err");
+    setStatus($("form-fields-status"), `ຊ່ອງ "${badSelect.label}" ເປັນປະເພດຕົວເລືອກ ແຕ່ຍັງບໍ່ໄດ້ໃສ່ຕົວເລືອກ`, "err");
     return;
   }
   try {
     await setDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"), { fields: formFields });
-    setStatus($("form-fields-status"), `บันทึกฟอร์มเรียบร้อย (${formFields.length} ช่อง) — หน้าเว็บสาธารณะใช้ฟอร์มใหม่ทันที`, "ok");
+    setStatus($("form-fields-status"), `ບັນທຶກຟອມຮຽບຮ້ອຍ (${formFields.length} ຊ່ອງ) — ໜ້າເວັບສາທາລະນະໃຊ້ຟອມໃໝ່ທັນທີ`, "ok");
     renderFormFields();
   } catch (err){
     console.error(err);
-    setStatus($("form-fields-status"), "บันทึกไม่สำเร็จ: " + err.message, "err");
+    setStatus($("form-fields-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
   }
 });
