@@ -206,29 +206,7 @@ async function deleteDepartment(docId){
 }
 
 /* ---------- นำเข้าข้อมูลตั้งต้น ---------- */
-$("seed-btn").addEventListener("click", async () => {
-  if(departments.length){
-    const ok = confirm(`ตอนนี้มีข้อมูลอยู่แล้ว ${departments.length} แผนก\nการนำเข้าจะ "เขียนทับ" แผนกที่มี id ตรงกับข้อมูลตั้งต้น (mkt, svc, adm, hr, it, acc, aud)\n\nต้องการดำเนินการต่อหรือไม่?`);
-    if(!ok) return;
-  }
-  const btn = $("seed-btn");
-  btn.disabled = true;
-  setStatus($("dept-status"), "กำลังนำเข้าข้อมูลตั้งต้น...");
-  try {
-    for(let i = 0; i < DEFAULT_DEPARTMENTS.length; i++){
-      const d = DEFAULT_DEPARTMENTS[i];
-      const { id, ...data } = d;
-      await setDoc(doc(db, DEPARTMENTS_COLLECTION, id), { ...data, order: i + 1 });
-    }
-    setStatus($("dept-status"), `นำเข้าข้อมูล ${DEFAULT_DEPARTMENTS.length} แผนกเรียบร้อย`, "ok");
-    await loadDepartments();
-  } catch (err){
-    console.error(err);
-    setStatus($("dept-status"), "นำเข้าไม่สำเร็จ: " + err.message, "err");
-  } finally {
-    btn.disabled = false;
-  }
-});
+
 
 /* ==========================================================================
    DEPARTMENT MODAL — ฟอร์มเพิ่ม/แก้ไขแผนก + ตัวแก้ไขตำแหน่ง
