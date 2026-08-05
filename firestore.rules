@@ -36,6 +36,14 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // ข้อมูลสาขา/แขวง — แต่ละสาขาเลือกได้ว่าเปิดรับตำแหน่งใดบ้าง
+    // - read: ทุกคนอ่านได้ (หน้าเว็บสาธารณะใช้แสดงแท็บสาขา + กรองตำแหน่ง)
+    // - write: เฉพาะ admin (จัดการผ่านหน้า admin.html → แท็บ "จัดการสาขา")
+    match /branches/{branchId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     // การตั้งค่าระบบ (อีเมลแจ้งเตือน HR, โครงสร้างฟอร์มสมัคร ฯลฯ)
     // - read: ทุกคนอ่านได้ (หน้าฟอร์มสาธารณะต้องใช้ตอน render/ส่งใบสมัคร)
     // - write: เฉพาะ admin (แก้จากแท็บ "ตั้งค่า" ในหน้า admin.html)

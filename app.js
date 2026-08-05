@@ -12,10 +12,11 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 import {
   firebaseConfig, HR_NOTIFY_EMAILS, APPLICATIONS_COLLECTION,
-  DEPARTMENTS_COLLECTION, SETTINGS_COLLECTION,
+  DEPARTMENTS_COLLECTION, BRANCHES_COLLECTION, SETTINGS_COLLECTION,
   RESUME_STORAGE_FOLDER, ATTACHMENTS_STORAGE_FOLDER
 } from "./firebase-config.js";
 import { DEFAULT_DEPARTMENTS } from "./departments-data.js";
+import { DEFAULT_BRANCHES } from "./branches-data.js";
 import { DEFAULT_FORM_FIELDS } from "./form-defaults.js";
 
 const firebaseApp = initializeApp(firebaseConfig);
@@ -48,6 +49,48 @@ async function loadDepartments(){
     console.error("โหลดข้อมูลแผนกจาก Firestore ไม่สำเร็จ ใช้ข้อมูลตั้งต้นแทน:", err);
     DEPARTMENTS = DEFAULT_DEPARTMENTS;
   }
+}
+
+/* ==========================================================================
+   BRANCH DATA — ສາຂາ/ແຂວງ
+   ແຕ່ລະສາຂາເປີດຮັບຕຳແໜ່ງບໍ່ຄືກັນ ໂດຍອ້າງອີງ position.id ຈາກ DEPARTMENTS
+   ຊຸດດຽວກັນ (ບໍ່ໄດ້ແຍກຂໍ້ມູນຕຳແໜ່ງເປັນຂອງແຕ່ລະສາຂາ) — ຈັດການໄດ້ຈາກ
+   admin → ແທັບ "ຈັດການສາຂາ" — allPositions: true ໝາຍເຖິງເປີດຮັບທຸກຕຳແໜ່ງ
+   ========================================================================== */
+let BRANCHES = [];
+let currentBranchId = localStorage.getItem("ssmi-branch") || null;
+
+async function loadBranches(){
+  if(FIREBASE_NOT_CONFIGURED){
+    BRANCHES = DEFAULT_BRANCHES;
+  } else {
+    try {
+      const snap = await getDocs(query(collection(db, BRANCHES_COLLECTION), orderBy("order")));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      BRANCHES = list.length ? list : DEFAULT_BRANCHES;
+    } catch (err){
+      console.error("โหลดข้อมูลสาขาจาก Firestore ไม่สำเร็จ ใช้ข้อมูลตั้งต้นแทน:", err);
+      BRANCHES = DEFAULT_BRANCHES;
+    }
+  }
+  if(!BRANCHES.find(b => b.id === currentBranchId)){
+    currentBranchId = BRANCHES[0]?.id || null;
+  }
+}
+
+function currentBranch(){
+  return BRANCHES.find(b => b.id === currentBranchId) || BRANCHES[0];
+}
+
+function isPositionOpenInBranch(branch, p){
+  if(!branch) return true;
+  if(branch.allPositions) return true;
+  return (branch.positionIds || []).includes(p.id);
+}
+
+/* ตำแหน่งที่ "เปิดรับ" และ "เปิดรับในสาขาที่กำลังเลือกอยู่" */
+function branchOpenPositions(d, branch = currentBranch()){
+  return openPositions(d).filter(p => isPositionOpenInBranch(branch, p));
 }
 
 /* ==========================================================================
@@ -93,6 +136,9 @@ const I18N = {
     heroSub: "ສຳຫຼວດແຕ່ລະຝ່າຍໃນສະຖາບັນການເງິນຈຸລະພາກຂອງພວກເຮົາ ເບິ່ງພາລະໜ້າທີ່ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ ແລ້ວຍື່ນໃບສະໝັກໄດ້ທັນທີຈາກໜ້ານີ້",
     statDepts: "ຝ່າຍທັງໝົດ",
     statOpen: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
+    branchTitle: "ເລືອກສາຂາ",
+    branchSub: n => `ທັງໝົດ ${n} ສາຂາ — ກົດເລືອກສາຂາເພື່ອເບິ່ງຕຳແໜ່ງທີ່ເປີດຮັບຢູ່ໃນສາຂານັ້ນ`,
+    branchLabel: "ສາຂາ",
     dirTitle: "ຝ່າຍໃນອົງກອນ",
     dirSub: "ຄລິກທີ່ກາດເພື່ອເບິ່ງລາຍລະອຽດ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ",
     nDuties: n => `${n} ພາລະບົດບາດຫຼັກ`,
@@ -137,6 +183,9 @@ const I18N = {
     heroSub: "Explore every department in our microfinance institution, review responsibilities and open positions, then apply directly from this page.",
     statDepts: "Departments",
     statOpen: "Open positions",
+    branchTitle: "Choose a branch",
+    branchSub: n => `${n} branches in total — pick one to see the positions open there`,
+    branchLabel: "Branch",
     dirTitle: "Departments",
     dirSub: "Click a card to see details and open positions",
     nDuties: n => `${n} key duties`,
@@ -217,14 +266,51 @@ document.getElementById("lang-toggle").addEventListener("click", () => {
 const app = document.getElementById("app");
 document.getElementById("year").textContent = new Date().getFullYear();
 
-function totalOpenPositions(){
-  return DEPARTMENTS.reduce((sum, d) => sum + openPositions(d).length, 0);
+function totalOpenPositions(branch = currentBranch()){
+  return DEPARTMENTS.reduce((sum, d) => sum + branchOpenPositions(d, branch).length, 0);
 }
 
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, s => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[s]));
+}
+
+/* ---------------- Branch tabs (shared between directory & detail views) ---------------- */
+function branchTabsHtml(){
+  if(!BRANCHES.length) return "";
+  const activeId = currentBranch()?.id;
+  return `
+    <section class="relative pb-10 sm:pb-12">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <div class="mb-4 sm:mb-5">
+          <h2 class="font-display text-lg font-bold text-slate-900 sm:text-xl">${t("branchTitle")}</h2>
+          <p class="mt-1 text-sm text-slate-500">${t("branchSub")(BRANCHES.length)}</p>
+        </div>
+        <div class="flex flex-wrap gap-2 sm:gap-2.5">
+          ${BRANCHES.map(b => `
+            <button type="button" data-branch-tab="${escapeHtml(b.id)}" class="rounded-full border px-4 py-2 text-sm font-bold transition-all duration-200 ${b.id === activeId
+              ? "border-indigo-500 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30"
+              : "border-slate-200 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-indigo-300 hover:text-indigo-600"
+            }">${escapeHtml(tr(b, "name"))}</button>
+          `).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function bindBranchTabs(){
+  app.querySelectorAll("[data-branch-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.branchTab;
+      if(id === currentBranchId) return;
+      currentBranchId = id;
+      localStorage.setItem("ssmi-branch", currentBranchId);
+      /* ບໍ່ຢາກໃຫ້ໜ້າກະໂດດຂຶ້ນເທິງສຸດ ເມື່ອສະຫຼັບສາຂາ — ຄົງຕຳແໜ່ງເລື່ອນເດີມໄວ້ */
+      route({ keepScroll: true });
+    });
+  });
 }
 
 /* ---------------- Directory view ---------------- */
@@ -258,6 +344,8 @@ function renderDirectory(){
       </div>
     </section>
 
+    ${branchTabsHtml()}
+
     <section class="relative pb-16 sm:pb-24">
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <div class="mb-8 sm:mb-10">
@@ -265,15 +353,16 @@ function renderDirectory(){
           <p class="mt-1 text-slate-500">${t("dirSub")}</p>
         </div>
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-          ${DEPARTMENTS.map(deptCard).join("")}
+          ${DEPARTMENTS.map(d => deptCard(d)).join("")}
         </div>
       </div>
     </section>
   `;
+  bindBranchTabs();
 }
 
 function deptCard(d){
-  const openN = openPositions(d).length;
+  const openN = branchOpenPositions(d).length;
   return `
     <a class="group relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-md transition-all duration-300 ease-in-out hover:-translate-y-2 hover:scale-[1.02] hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-500/20 sm:p-7" href="#/dept/${d.id}">
       <span class="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 transition-transform duration-300 group-hover:scale-x-100"></span>
@@ -290,7 +379,7 @@ function deptCard(d){
 
 /* ---------------- Department detail view ---------------- */
 function deptSidebarItem(d, active){
-  const openN = openPositions(d).length;
+  const openN = branchOpenPositions(d).length;
   return `
     <a class="grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1 rounded-xl px-3 py-2.5 transition-all duration-200 ${active ? "bg-gradient-to-r from-indigo-50 to-purple-50 ring-1 ring-indigo-200" : "hover:bg-slate-50"}" href="#/dept/${d.id}">
       <span class="inline-flex w-fit items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-mono text-[0.6rem] font-bold tracking-widest text-indigo-600">${escapeHtml(d.code || "")}</span>
@@ -303,10 +392,15 @@ function deptSidebarItem(d, active){
 function renderDetail(deptId){
   const d = DEPARTMENTS.find(x => x.id === deptId);
   if(!d){ renderDirectory(); return; }
-  const positions = d.positions || [];
+  const branch = currentBranch();
+  const allPositions = d.positions || [];
+  const positions = allPositions
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => isPositionOpenInBranch(branch, p));
   const resp = trList(d, "responsibilities");
 
   app.innerHTML = `
+    ${branchTabsHtml()}
     <section class="py-8 sm:py-14">
       <div class="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 sm:gap-8 sm:px-6 lg:grid-cols-[272px_1fr]">
         <aside class="order-2 lg:order-1 lg:sticky lg:top-24 lg:self-start">
@@ -327,7 +421,7 @@ function renderDetail(deptId){
               <p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(tr(d, "mission"))}</p>
             </div>
             <div class="flex shrink-0 items-center gap-4 rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-purple-50 px-6 py-4 text-center shadow-md sm:flex-col sm:gap-0">
-              <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-3xl font-extrabold text-transparent">${positions.filter(isOpen).length}</b>
+              <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-3xl font-extrabold text-transparent">${positions.filter(({ p }) => isOpen(p)).length}</b>
               <span class="text-xs font-semibold text-slate-500">${t("openPositions")}</span>
             </div>
           </div>
@@ -344,7 +438,7 @@ function renderDetail(deptId){
               <h4 class="mb-4 font-display text-base font-bold text-slate-900">${t("posTitle")}</h4>
               <div class="flex flex-col gap-4">
                 ${positions.length
-                  ? positions.map((p, i) => positionCard(d, p, i)).join("")
+                  ? positions.map(({ p, i }) => positionCard(d, p, i)).join("")
                   : `<div class="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-400">${t("posEmpty")}</div>`
                 }
               </div>
@@ -357,6 +451,7 @@ function renderDetail(deptId){
       </div>
     </section>
   `;
+  bindBranchTabs();
 
   app.querySelectorAll("[data-apply]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -455,13 +550,19 @@ let applyingToOpenPosition = true;
 
 function openApplyModal(dept, position){
   applyingToOpenPosition = isOpen(position);
-  document.getElementById("apply-dept-label").textContent = tr(dept, "name");
+  const branch = currentBranch();
+  const branchName = branch ? tr(branch, "name") : "";
+  document.getElementById("apply-dept-label").textContent = branchName
+    ? `${tr(dept, "name")} · ${t("branchLabel")}: ${branchName}`
+    : tr(dept, "name");
   document.getElementById("apply-title").textContent = t("applyFor")(tr(position, "title") || position.title);
   form.reset();
   renderCustomFields();
   document.getElementById("field-department").value = dept.name;
   document.getElementById("field-department-id").value = dept.id || "";
   document.getElementById("field-position").value = position.title;
+  document.getElementById("field-branch").value = branchName;
+  document.getElementById("field-branch-id").value = branch?.id || "";
   setApplyStatus("");
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
@@ -492,6 +593,8 @@ form.addEventListener("submit", async (e) => {
   const departmentVal = document.getElementById("field-department").value;
   const departmentIdVal = document.getElementById("field-department-id").value;
   const positionVal = document.getElementById("field-position").value;
+  const branchVal = document.getElementById("field-branch").value;
+  const branchIdVal = document.getElementById("field-branch-id").value;
 
   if(!nameVal || !emailVal || !phoneVal){
     setApplyStatus(t("errCore"), "err");
@@ -555,11 +658,12 @@ form.addEventListener("submit", async (e) => {
       : "ไม่มีไฟล์แนบ";
 
     const subject = (applyingToOpenPosition ? "ໃບສະໝັກໃໝ່: " : "[ຝາກປະຫວັດ] ") +
-      `${positionVal} (${departmentVal})`;
+      `${positionVal} (${departmentVal}${branchVal ? " — " + branchVal : ""})`;
     const emailText =
       `มีผู้สมัครใหม่\n\n` +
       `ตำแหน่ง: ${positionVal}\n` +
       `แผนก: ${departmentVal}\n` +
+      `สาขา: ${branchVal || "-"}\n` +
       `ชื่อ-นามสกุล: ${nameVal}\n` +
       `อีเมล: ${emailVal}\n` +
       `เบอร์โทรศัพท์: ${phoneVal}\n\n` +
@@ -570,6 +674,8 @@ form.addEventListener("submit", async (e) => {
       department: departmentVal,
       departmentId: departmentIdVal,
       position: positionVal,
+      branch: branchVal,
+      branchId: branchIdVal,
       name: nameVal,
       email: emailVal,
       phone: phoneVal,
@@ -598,18 +704,19 @@ form.addEventListener("submit", async (e) => {
 });
 
 /* ---------------- Router ---------------- */
-function route(){
+function route({ keepScroll = false } = {}){
+  const scrollY = window.scrollY;
   const hash = location.hash.replace(/^#\/?/, "");
   if(hash.startsWith("dept/")){
     renderDetail(hash.replace("dept/", ""));
   } else {
     renderDirectory();
   }
-  window.scrollTo(0, 0);
+  window.scrollTo(0, keepScroll ? scrollY : 0);
 }
 
 window.addEventListener("hashchange", route);
 
 applyStaticI18n();
 app.innerHTML = `<section class="px-6 py-24 text-center text-slate-400"><div class="mx-auto max-w-6xl">${t("loading")}</div></section>`;
-Promise.all([loadDepartments(), loadSettings()]).then(route);
+Promise.all([loadDepartments(), loadBranches(), loadSettings()]).then(route);

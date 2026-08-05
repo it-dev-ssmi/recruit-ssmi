@@ -238,6 +238,24 @@
   text-transform: uppercase;
 }
 
+.branch-position-group{
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: var(--surface-2);
+}
+.branch-position-group h5{
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--accent-text);
+  text-transform: uppercase;
+}
+.branch-position-list{ display: grid; gap: 8px; }
+#branch-positions-wrap.is-disabled{ opacity: 0.5; pointer-events: none; }
+
 /* ---------- Applications ---------- */
 .apps-list{ display: grid; gap: 14px; }
 .app-card{

@@ -20,6 +20,7 @@ export const DEFAULT_DEPARTMENTS = [
     ],
     positions: [
       {
+        id: "mkt-1",
         title: "ພະນັກງານສິນເຊື່ອລັດ",
         type: "ເຕັມເວລາ",
         description: "ໃຫ້ບໍລິການສິນເຊື່ອແກ່ພາກລັດ ວາງແຜນໂຄສະນາ ແລະ ເປັນຜູ້ຕາງໜ້າສະຖາບັນໃນການພົວພັນກັບກົມກອງ, ຫ້ອງການຕ່າງໆ",
@@ -39,6 +40,7 @@ export const DEFAULT_DEPARTMENTS = [
         ]
       },
       {
+        id: "mkt-2",
         title: "ພະນັກງານສິນເຊື່ອຫຼັກຊັບ",
         type: "ເຕັມເວລາ",
         description: "ໃຫ້ບໍລິການສິນເຊື່ອຄ້ຳປະກັນຫຼັກຊັບ ປະເມີນວົງເງິນປ່ອຍກູ້ ແລະ ລົງປະເມີນຫຼັກຊັບຕົວຈິງຂອງລູກຄ້າ",
@@ -58,6 +60,7 @@ export const DEFAULT_DEPARTMENTS = [
         ]
       },
       {
+        id: "mkt-3",
         title: "ພະນັກງານສື່ສານການຕະຫຼາດ ແລະ ການສ້າງແບຣນ",
         type: "ເຕັມເວລາ",
         description: "ດູແລພາບລັກຂອງອົງກອນ ອອກແບບສື່ໂຄສະນາ ແລະ ວາງແຜນການສື່ສານຜ່ານຊ່ອງທາງອອນລາຍ",
@@ -76,6 +79,7 @@ export const DEFAULT_DEPARTMENTS = [
         ]
       },
       {
+        id: "mkt-4",
         title: "ພະນັກງານວິເຄາະການຕະຫຼາດ",
         type: "ເຕັມເວລາ",
         description: "ວິເຄາະ ອອກແບບ ແລະ ພັດທະນາຜະລິດຕະພັນເງິນກູ້-ເງິນຝາກໃໝ່ ໃຫ້ແທດເໝາະກັບກຸ່ມລູກຄ້າ",
@@ -108,6 +112,7 @@ export const DEFAULT_DEPARTMENTS = [
     ],
     positions: [
       {
+        id: "svc-1",
         title: "ພະນັກງານບໍລິການ",
         type: "ເຕັມເວລາ",
         description: "ກວດກາເອກະສານ, ວິເຄາະຂໍ້ມູນສິນເຊື່ອ ແລະ ໃຫ້ບໍລິການລູກຄ້າເງິນກູ້-ເງິນຝາກ",
@@ -128,6 +133,7 @@ export const DEFAULT_DEPARTMENTS = [
         ]
       },
       {
+        id: "svc-2",
         title: "ພະນັກງານບໍລິຫານໜີ້ສິນ",
         type: "ເຕັມເວລາ",
         description: "ຕິດຕາມ ແລະ ບໍລິຫານໜີ້ທີ່ບໍ່ເກີດດອກອອກຜົນ (NPL) ທົ່ວທັງລະບົບ",
@@ -146,6 +152,7 @@ export const DEFAULT_DEPARTMENTS = [
         ]
       },
       {
+        id: "svc-3",
         title: "ພະນັກງານປະສົບການລູກຄ້າ",
         type: "ເຕັມເວລາ",
         description: "ຍົກລະດັບມາດຕະຖານການໃຫ້ບໍລິການ ແລະ ສ້າງປະສົບການທີ່ດີໃຫ້ກັບລູກຄ້າ",
@@ -179,6 +186,7 @@ export const DEFAULT_DEPARTMENTS = [
     ],
     positions: [
       {
+        id: "adm-1",
         title: "ພະນັກງານບໍລິຫານ",
         type: "ເຕັມເວລາ",
         description: "ດູແລງົບປະມານ, ເອກະສານ, ການຈັດຊື້ ແລະ ຊັບສິນຂອງສະຖາບັນ",
@@ -197,6 +205,7 @@ export const DEFAULT_DEPARTMENTS = [
         ]
       },
       {
+        id: "adm-2",
         title: "ເລຂາຜູ້ອຳນວຍການ",
         type: "ເຕັມເວລາ",
         description: "ບໍລິຫານວຽກປະຈຳວັນ ປະສານງານ ແລະ ສະໜັບສະໜູນຄະນະຜູ້ອຳນວຍການ",
@@ -232,6 +241,7 @@ export const DEFAULT_DEPARTMENTS = [
     ],
     positions: [
       {
+        id: "hr-1",
         title: "ພະນັກງານບຸກຄະລາກອນ",
         type: "ເຕັມເວລາ",
         description: "ດູແລການສັບໝູນ, ເງິນເດືອນ, ສະບຽງພະນັກງານ ແລະ ປະກັນສັງຄົມ",
@@ -263,6 +273,7 @@ export const DEFAULT_DEPARTMENTS = [
     ],
     positions: [
       {
+        id: "it-1",
         title: "ພະນັກງານໄອທີ",
         type: "ເຕັມເວລາ",
         description: "ຄຸ້ມຄອງລະບົບ, ເຄືອຂ່າຍ, ອຸປະກອນໄອທີ ແລະ ເວັບໄຊທ໌ຂອງອົງກອນ",
@@ -298,6 +309,7 @@ export const DEFAULT_DEPARTMENTS = [
     ],
     positions: [
       {
+        id: "acc-1",
         title: "ພະນັກງານບັນຊີ",
         type: "ເຕັມເວລາ",
         description: "ຮັບຜິດຊອບການລົງບັນຊີລາຍຈ່າຍປະຈຳວັນ ແລະ ສະຫຼຸບລາຍງານບັນຊີ",
@@ -310,6 +322,7 @@ export const DEFAULT_DEPARTMENTS = [
         ]
       },
       {
+        id: "acc-2",
         title: "ພະນັກງານຄັງເງິນສົດ",
         type: "ເຕັມເວລາ",
         description: "ຄຸ້ມຄອງເງິນສົດໃນຄັງ ການເບີກ-ຈ່າຍ ແລະ ຄວາມຖືກຕ້ອງຂອງໃບບິນ",
@@ -342,6 +355,7 @@ export const DEFAULT_DEPARTMENTS = [
     ],
     positions: [
       {
+        id: "aud-1",
         title: "ພະນັກງານກວດກາ",
         type: "ເຕັມເວລາ",
         description: "ຕິດຕາມ ແລະ ດຳເນີນການກວດກາຮອບດ້ານພາຍໃນຂອງສະຖາບັນ",

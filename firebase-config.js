@@ -30,6 +30,7 @@ export const HR_NOTIFY_EMAILS = ["admin.hr@ssmilaos.com"];
    extension's "Email documents collection" setting. */
 export const APPLICATIONS_COLLECTION = "applications";
 export const DEPARTMENTS_COLLECTION = "departments";
+export const BRANCHES_COLLECTION = "branches";
 export const SETTINGS_COLLECTION = "settings";
 export const RESUME_STORAGE_FOLDER = "resumes";
 export const ATTACHMENTS_STORAGE_FOLDER = "attachments";

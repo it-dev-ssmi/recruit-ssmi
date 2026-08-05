@@ -16,10 +16,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 import {
   firebaseConfig, HR_NOTIFY_EMAILS, APPLICATIONS_COLLECTION,
-  DEPARTMENTS_COLLECTION, SETTINGS_COLLECTION
+  DEPARTMENTS_COLLECTION, BRANCHES_COLLECTION, SETTINGS_COLLECTION
 } from "./firebase-config.js";
 import { DEFAULT_DEPARTMENTS } from "./departments-data.js";
+import { DEFAULT_BRANCHES } from "./branches-data.js";
 import { DEFAULT_FORM_FIELDS, FIELD_TYPES } from "./form-defaults.js";
+
+function genId(prefix){
+  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
@@ -59,7 +64,7 @@ onAuthStateChanged(auth, user => {
     adminView.hidden = false;
     logoutBtn.hidden = false;
     $("admin-email").textContent = user.email || "(ບໍ່ຮູ້ອີເມວ)";
-    loadDepartments();
+    loadDepartments().then(loadBranches);
     loadApplications();
     loadSettings();
   } else {
@@ -107,6 +112,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("is-active", b === btn));
     $("tab-departments").hidden = btn.dataset.tab !== "departments";
+    $("tab-branches").hidden = btn.dataset.tab !== "branches";
     $("tab-applications").hidden = btn.dataset.tab !== "applications";
     $("tab-settings").hidden = btn.dataset.tab !== "settings";
   });
@@ -123,10 +129,33 @@ async function loadDepartments(){
   try {
     const snap = await getDocs(query(collection(db, DEPARTMENTS_COLLECTION), orderBy("order")));
     departments = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    await backfillPositionIds();
     renderDepartmentList();
   } catch (err){
     console.error(err);
     listEl.innerHTML = `<p class="admin-error">ໂຫຼດຂໍ້ມູນບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+/* ตำแหน่งเก่าที่บันทึกไว้ก่อนมีระบบสาขาจะยังไม่มี id — เติมให้ครั้งเดียว
+   แล้วบันทึกกลับ Firestore เพื่อให้ id คงที่ ใช้อ้างอิงจากสาขาได้ */
+async function backfillPositionIds(){
+  const updates = [];
+  for(const d of departments){
+    let changed = false;
+    const positions = (d.positions || []).map(p => {
+      if(p.id) return p;
+      changed = true;
+      return { ...p, id: genId("pos") };
+    });
+    if(changed){
+      d.positions = positions;
+      updates.push(updateDoc(doc(db, DEPARTMENTS_COLLECTION, d.docId), { positions }));
+    }
+  }
+  if(updates.length){
+    try { await Promise.all(updates); }
+    catch (err){ console.error("เติม id ตำแหน่งเก่าไม่สำเร็จ:", err); }
   }
 }
 
@@ -217,7 +246,7 @@ const positionsContainer = $("positions-container");
 function positionBlockHtml(p = {}){
   const duties = (p.duties || []).join("\n");
   return `
-    <div class="position-edit-block">
+    <div class="position-edit-block" data-pos-id="${escapeHtml(p.id || genId("pos"))}">
       <div class="position-edit-head">
         <span class="position-edit-label">ຕຳແໜ່ງ</span>
         <div class="field-block-actions">
@@ -302,6 +331,7 @@ $("dept-form").addEventListener("submit", async e => {
   }
 
   const positions = [...positionsContainer.querySelectorAll(".position-edit-block")].map(block => ({
+    id: block.dataset.posId || genId("pos"),
     title: block.querySelector(".pos-title").value.trim(),
     open: block.querySelector(".pos-open").checked,
     type: block.querySelector(".pos-type").value.trim() || "ເຕັມເວລາ",
@@ -334,6 +364,196 @@ $("dept-form").addEventListener("submit", async e => {
     setStatus($("dept-form-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
   } finally {
     $("dept-save").disabled = false;
+  }
+});
+
+/* ==========================================================================
+   BRANCHES — สาขา/แขวง: จัดการรายชื่อสาขา และเลือกว่าแต่ละสาขาเปิดรับ
+   ตำแหน่งใดบ้าง (อ้างอิง position.id จากชุดตำแหน่งของแผนกต่างๆ ด้านบน)
+   ========================================================================== */
+let branches = [];
+
+async function loadBranches(){
+  const listEl = $("branch-admin-list");
+  listEl.innerHTML = `<p class="admin-loading">ກຳລັງໂຫຼດຂໍ້ມູນສາຂາ...</p>`;
+  try {
+    const snap = await getDocs(query(collection(db, BRANCHES_COLLECTION), orderBy("order")));
+    branches = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    renderBranchList();
+  } catch (err){
+    console.error(err);
+    listEl.innerHTML = `<p class="admin-error">ໂຫຼດຂໍ້ມູນບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderBranchList(){
+  const listEl = $("branch-admin-list");
+  if(!branches.length){
+    listEl.innerHTML = `
+      <div class="admin-empty">
+        <p>ຍັງບໍ່ມີຂໍ້ມູນສາຂາໃນ Firestore</p>
+        <p class="admin-empty-sub">ໜ້າເວັບສາທາລະນະຈະສະແດງຂໍ້ມູນຕັ້ງຕົ້ນ (${DEFAULT_BRANCHES.length} ສາຂາ) ໄປພາງກ່ອນ ຈົນກວ່າຈະມີຂໍ້ມູນແທ້ໃນລະບົບ — ກົດ "+ ເພີ່ມສາຂາໃໝ່" ດ້ານເທິງເພື່ອເລີ່ມ</p>
+      </div>`;
+    return;
+  }
+  listEl.innerHTML = branches.map((b, idx) => `
+    <div class="dept-admin-card" data-docid="${escapeHtml(b.docId)}">
+      <div class="dept-admin-main">
+        <span class="dept-code">${escapeHtml(b.code || "—")}</span>
+        <div class="dept-admin-info">
+          <h3>${escapeHtml(b.name || "(ບໍ່ມີຊື່)")}</h3>
+          <div class="dept-admin-meta">
+            <span>ລຳດັບ: ${b.order ?? "-"}</span>
+            <span>${b.allPositions ? "ເປີດຮັບທຸກຕຳແໜ່ງ" : `${(b.positionIds || []).length} ຕຳແໜ່ງທີ່ເລືອກ`}</span>
+          </div>
+        </div>
+      </div>
+      <div class="dept-admin-actions">
+        <button class="btn btn--ghost btn--sm" data-move="up" ${idx === 0 ? "disabled" : ""} title="ເລື່ອນຂຶ້ນ">↑</button>
+        <button class="btn btn--ghost btn--sm" data-move="down" ${idx === branches.length - 1 ? "disabled" : ""} title="ເລື່ອນລົງ">↓</button>
+        <button class="btn btn--ghost btn--sm" data-action="edit">ແກ້ໄຂ</button>
+        <button class="btn btn--danger btn--sm" data-action="delete">ລຶບ</button>
+      </div>
+    </div>
+  `).join("");
+
+  listEl.querySelectorAll(".dept-admin-card").forEach(card => {
+    const docId = card.dataset.docid;
+    card.querySelector('[data-action="edit"]').addEventListener("click", () => openBranchModal(docId));
+    card.querySelector('[data-action="delete"]').addEventListener("click", () => deleteBranch(docId));
+    card.querySelector('[data-move="up"]').addEventListener("click", () => moveBranch(docId, -1));
+    card.querySelector('[data-move="down"]').addEventListener("click", () => moveBranch(docId, +1));
+  });
+}
+
+async function moveBranch(docId, dir){
+  const idx = branches.findIndex(b => b.docId === docId);
+  const swapIdx = idx + dir;
+  if(idx < 0 || swapIdx < 0 || swapIdx >= branches.length) return;
+  const a = branches[idx], b = branches[swapIdx];
+  const orderA = a.order ?? idx + 1, orderB = b.order ?? swapIdx + 1;
+  try {
+    await Promise.all([
+      updateDoc(doc(db, BRANCHES_COLLECTION, a.docId), { order: orderB }),
+      updateDoc(doc(db, BRANCHES_COLLECTION, b.docId), { order: orderA })
+    ]);
+    await loadBranches();
+  } catch (err){
+    console.error(err);
+    setStatus($("branch-status"), "ສະຫຼັບລຳດັບບໍ່ສຳເລັດ: " + err.message, "err");
+  }
+}
+
+async function deleteBranch(docId){
+  const b = branches.find(x => x.docId === docId);
+  if(!b) return;
+  const ok = confirm(`ຢືນຢັນລຶບສາຂາ "${b.name}" ?\nໜ້າເວັບສາທາລະນະຈະບໍ່ສະແດງແທັບສາຂານີ້ອີກ`);
+  if(!ok) return;
+  try {
+    await deleteDoc(doc(db, BRANCHES_COLLECTION, docId));
+    setStatus($("branch-status"), `ລຶບສາຂາ "${b.name}" ຮຽບຮ້ອຍ`, "ok");
+    await loadBranches();
+  } catch (err){
+    console.error(err);
+    setStatus($("branch-status"), "ລຶບບໍ່ສຳເລັດ: " + err.message, "err");
+  }
+}
+
+/* ---------- ตัวเลือกตำแหน่ง (checklist แยกตามพะแนก) ---------- */
+function branchPositionsPickerHtml(selectedIds){
+  const selected = new Set(selectedIds || []);
+  return departments.map(d => {
+    const positions = d.positions || [];
+    if(!positions.length) return "";
+    return `
+      <div class="branch-position-group">
+        <h5>${escapeHtml(d.name || d.code || "")}</h5>
+        <div class="branch-position-list">
+          ${positions.map(p => `
+            <label class="check-inline">
+              <input type="checkbox" class="branch-pos-check" value="${escapeHtml(p.id)}" ${selected.has(p.id) ? "checked" : ""}>
+              <span>${escapeHtml(p.title)}${p.open === false ? " (ຍັງບໍ່ເປີດຮັບ)" : ""}</span>
+            </label>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }).join("") || `<p class="admin-empty-sub">ຍັງບໍ່ມີຕຳແໜ່ງໃນລະບົບ — ໄປເພີ່ມຕຳແໜ່ງຈາກແທັບ "ຈັດການພະແນກ" ກ່ອນ</p>`;
+}
+
+const branchOverlay = $("branch-overlay");
+const branchAllPositionsCheck = $("branch-all-positions");
+const branchPositionsWrap = $("branch-positions-wrap");
+
+function updateBranchPositionsWrapState(){
+  branchPositionsWrap.classList.toggle("is-disabled", branchAllPositionsCheck.checked);
+  branchPositionsWrap.querySelectorAll("input").forEach(el => { el.disabled = branchAllPositionsCheck.checked; });
+}
+branchAllPositionsCheck.addEventListener("change", updateBranchPositionsWrapState);
+
+function openBranchModal(docId = null){
+  const b = docId ? branches.find(x => x.docId === docId) : null;
+  $("branch-modal-title").textContent = b ? `ແກ້ໄຂສາຂາ: ${b.name}` : "ເພີ່ມສາຂາໃໝ່";
+  $("branch-doc-id").value = b ? b.docId : "";
+  $("branch-code").value = b?.code || "";
+  $("branch-name").value = b?.name || "";
+  $("branch-order").value = b?.order ?? (branches.length + 1);
+  branchAllPositionsCheck.checked = !!b?.allPositions;
+  $("branch-positions-container").innerHTML = branchPositionsPickerHtml(b?.positionIds);
+  updateBranchPositionsWrapState();
+  setStatus($("branch-form-status"), "");
+  branchOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  $("branch-code").focus();
+}
+
+function closeBranchModal(){
+  branchOverlay.hidden = true;
+  document.body.style.overflow = "";
+}
+
+$("add-branch-btn").addEventListener("click", () => openBranchModal(null));
+$("branch-close").addEventListener("click", closeBranchModal);
+branchOverlay.addEventListener("click", e => { if(e.target === branchOverlay) closeBranchModal(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape" && !branchOverlay.hidden) closeBranchModal(); });
+
+$("branch-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const docId = $("branch-doc-id").value;
+  const code = $("branch-code").value.trim();
+  const name = $("branch-name").value.trim();
+  if(!code || !name){
+    setStatus($("branch-form-status"), "ກະລຸນາປ້ອນລະຫັດສາຂາ ແລະ ຊື່ສາຂາ", "err");
+    return;
+  }
+
+  const allPositions = branchAllPositionsCheck.checked;
+  const positionIds = allPositions ? [] : [...$("branch-positions-container").querySelectorAll(".branch-pos-check:checked")].map(el => el.value);
+
+  const data = {
+    code: code.toUpperCase(),
+    name,
+    order: Number($("branch-order").value) || branches.length + 1,
+    allPositions,
+    positionIds
+  };
+
+  $("branch-save").disabled = true;
+  setStatus($("branch-form-status"), "ກຳລັງບັນທຶກ...");
+  try {
+    if(docId){
+      await setDoc(doc(db, BRANCHES_COLLECTION, docId), data);
+    } else {
+      await addDoc(collection(db, BRANCHES_COLLECTION), data);
+    }
+    setStatus($("branch-form-status"), "ບັນທຶກຮຽບຮ້ອຍ", "ok");
+    await loadBranches();
+    setTimeout(closeBranchModal, 700);
+  } catch (err){
+    console.error(err);
+    setStatus($("branch-form-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
+  } finally {
+    $("branch-save").disabled = false;
   }
 });
 

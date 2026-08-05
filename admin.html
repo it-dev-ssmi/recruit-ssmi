@@ -63,6 +63,7 @@
         <aside class="admin-sidebar">
           <nav class="admin-tabs" role="tablist">
             <button class="tab-btn is-active" data-tab="departments">ຈັດການພະແນກ</button>
+            <button class="tab-btn" data-tab="branches">ຈັດການສາຂາ</button>
             <button class="tab-btn" data-tab="applications">ໃບສະໝັກວຽກ <span class="tab-count" id="app-count"></span></button>
             <button class="tab-btn" data-tab="settings">ຕັ້ງຄ່າ</button>
           </nav>
@@ -84,6 +85,19 @@
               <span class="form-status" id="dept-status" role="status"></span>
             </div>
             <div id="dept-admin-list" class="dept-admin-list">
+              <!-- rendered by admin.js -->
+            </div>
+          </div>
+
+          <!-- ---------- TAB: BRANCHES ---------- -->
+          <div id="tab-branches" class="tab-panel" hidden>
+            <div class="panel-toolbar">
+              <button class="btn btn--primary" id="add-branch-btn">+ ເພີ່ມສາຂາໃໝ່</button>
+              <span class="form-status" id="branch-status" role="status"></span>
+            </div>
+            <p class="settings-sub">ແຕ່ລະສາຂາເລືອກໄດ້ວ່າຈະເປີດຮັບຕຳແໜ່ງໃດແດ່ຈາກຊຸດຕຳແໜ່ງຂອງພະແນກຕ່າງໆ (ແທັບ "ຈັດການພະແນກ")
+            — ຫາກຕັ້ງເປັນ "ເປີດຮັບທຸກຕຳແໜ່ງ" ຈະສະແດງທຸກຕຳແໜ່ງທີ່ເປີດຮັບຢູ່ໂດຍອັດຕະໂນມັດ ໂດຍບໍ່ຕ້ອງເລືອກເອງ (ໃຊ້ກັບສຳນັກງານໃຫຍ່)</p>
+            <div id="branch-admin-list" class="dept-admin-list">
               <!-- rendered by admin.js -->
             </div>
           </div>
@@ -187,6 +201,55 @@
         <div class="form-actions">
           <button type="submit" class="btn btn--primary" id="dept-save">ບັນທຶກພະແນກ</button>
           <span class="form-status" id="dept-form-status" role="status"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= BRANCH EDIT MODAL ================= -->
+  <div id="branch-overlay" class="overlay" hidden>
+    <div class="modal modal--wide" role="dialog" aria-modal="true" aria-labelledby="branch-modal-title">
+      <button class="modal-close" id="branch-close" aria-label="ປິດໜ້າຕ່າງແກ້ໄຂສາຂາ">✕</button>
+
+      <div class="modal-head">
+        <p class="modal-eyebrow">ສາຂາ</p>
+        <h2 id="branch-modal-title">ແກ້ໄຂສາຂາ</h2>
+      </div>
+
+      <form id="branch-form" novalidate>
+        <input type="hidden" id="branch-doc-id">
+
+        <div class="field-grid">
+          <label class="field">
+            <span>ລະຫັດສາຂາ (ສັ້ນໆ ເຊັ່ນ HQ) <em>*</em></span>
+            <input type="text" id="branch-code" required maxlength="8" placeholder="HQ">
+          </label>
+          <label class="field">
+            <span>ລຳດັບການສະແດງຜົນ</span>
+            <input type="number" id="branch-order" min="0" step="1" placeholder="1">
+          </label>
+        </div>
+
+        <label class="field">
+          <span>ຊື່ສາຂາ / ແຂວງ <em>*</em></span>
+          <input type="text" id="branch-name" required placeholder="ສຳນັກງານໃຫຍ່">
+        </label>
+
+        <label class="check-inline">
+          <input type="checkbox" id="branch-all-positions">
+          <span>ເປີດຮັບທຸກຕຳແໜ່ງ (ໃຊ້ກັບສຳນັກງານໃຫຍ່ — ບໍ່ຕ້ອງເລືອກຕຳແໜ່ງດ້ານລຸ່ມ)</span>
+        </label>
+
+        <div class="positions-editor" id="branch-positions-wrap">
+          <div class="positions-editor-head">
+            <h4>ຕຳແໜ່ງທີ່ເປີດຮັບໃນສາຂານີ້</h4>
+          </div>
+          <div id="branch-positions-container"><!-- checkbox list, rendered by admin.js --></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary" id="branch-save">ບັນທຶກສາຂາ</button>
+          <span class="form-status" id="branch-form-status" role="status"></span>
         </div>
       </form>
     </div>
