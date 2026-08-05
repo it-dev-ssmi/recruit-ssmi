@@ -5,36 +5,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ຮ່ວມງານກັບ SSMI — ສະໝັກງານຕາມສາຍງານ</title>
 <meta name="description" content="ສກຈຮ ສິນຊັບເມືອງເໜືອ (SSMI) ເປີດຮັບສະໝັກພະນັກງານ ສຳຫຼວດແຕ່ລະຝ່າຍ ເບິ່ງພາລະໜ້າທີ່ ແລະ ສະໝັກຕຳແໜ່ງທີ່ເປີດຮັບໄດ້ທີ່ນີ້">
-<meta name="theme-color" content="#070d1a">
+<meta name="theme-color" content="#4f46e5">
 <link rel="icon" type="image/png" href="SSMI LOGO FINAL3.png">
 <link rel="apple-touch-icon" href="SSMI LOGO FINAL3.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['"Space Grotesk"', '"Noto Sans Lao"', '"Noto Sans Thai"', 'sans-serif'],
+          body: ['"Inter"', '"Noto Sans Lao"', '"Noto Sans Thai"', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', '"Noto Sans Lao"', 'monospace']
+        },
+        animation: {
+          blob: 'blob 14s infinite'
+        },
+        keyframes: {
+          blob: {
+            '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+            '33%':      { transform: 'translate(30px, -40px) scale(1.1)' },
+            '66%':      { transform: 'translate(-20px, 20px) scale(0.95)' }
+          }
+        }
+      }
+    }
+  };
+</script>
+<!-- Small bridge rules: things Tailwind utility classes alone can't express because
+     they must survive a runtime className overwrite (form status) or live inside a
+     translated content string from app.js (the <em> required-marker and the
+     <span class="grad"> inside the hero headline) — everything else on this page is
+     plain Tailwind utility classes. -->
+<style>
+  [hidden]{ display: none !important; }
+  .grad{ background-image: linear-gradient(90deg, #4f46e5, #a855f7, #ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  [data-lang-opt].is-active{ color: #4f46e5; font-weight: 800; }
+  em{ font-style: normal; color: #4f46e5; }
+</style>
 </head>
-<body>
+<body class="min-h-screen bg-slate-50 font-body text-slate-600 antialiased">
 
-  <div class="aurora" aria-hidden="true">
-    <span class="aurora-blob aurora-blob--gold"></span>
-    <span class="aurora-blob aurora-blob--cyan"></span>
-    <span class="aurora-blob aurora-blob--navy"></span>
-  </div>
+  <a href="#app" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[200] focus:rounded-xl focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:shadow-lg">ຂ້າມໄປຫາເນື້ອຫາ</a>
 
-  <header class="site-header">
-    <div class="wrap header-row">
-      <a class="brand" href="#/">
+  <header class="sticky top-0 z-50 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl backdrop-saturate-150">
+    <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:h-20 sm:px-6">
+      <a class="group flex min-w-0 items-center gap-2 sm:gap-3" href="#/">
         <!-- ວາງໄຟລ໌ໂລໂກ້ຂອງອົງກອນຊື່ logo.png ໄວ້ໃນໂຟນເດີດຽວກັນ
              ຖ້າບໍ່ມີໄຟລ໌ ລະບົບຈະສະແດງເຄື່ອງໝາຍ "SS" ແທນອັດຕະໂນມັດ -->
-        <img src="SSMI LOGO FINAL3.png" alt="SSMI logo" class="brand-logo"
+        <img src="SSMI LOGO FINAL3.png" alt="SSMI logo" class="h-8 w-auto rounded-xl object-contain transition-transform duration-300 group-hover:scale-105 sm:h-10"
              onerror="this.remove(); document.querySelector('.brand-mark').hidden = false;">
-        <span class="brand-mark" hidden>SS</span>
-        <span class="brand-name" data-i18n="brand">SSMI — ສິນຊັບເມືອງເໜືອ</span>
+        <span class="brand-mark hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-fuchsia-500 font-display text-xs font-bold text-white shadow-lg shadow-indigo-500/30 sm:h-10 sm:w-10 sm:text-sm" hidden>SS</span>
+        <span class="truncate font-display text-sm font-bold tracking-tight text-slate-900 sm:text-base" data-i18n="brand">SSMI — ສິນຊັບເມືອງເໜືອ</span>
       </a>
-      <nav class="header-nav">
-        <a href="#/" class="nav-link" data-i18n="navAll">ຝ່າຍທັງໝົດ</a>
-        <button type="button" class="lang-toggle" id="lang-toggle" aria-label="Switch language">
-          <span data-lang-opt="la">ລາວ</span><i>/</i><span data-lang-opt="en">EN</span>
+      <nav class="flex items-center gap-2 sm:gap-4">
+        <a href="#/" class="hidden text-sm font-semibold text-slate-600 transition-colors duration-200 hover:text-indigo-600 sm:block" data-i18n="navAll">ຝ່າຍທັງໝົດ</a>
+        <button type="button" class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold tracking-wide text-slate-600 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md sm:px-4 sm:py-2" id="lang-toggle" aria-label="Switch language">
+          <span data-lang-opt="la">ລາວ</span><i class="not-italic text-slate-300">/</i><span data-lang-opt="en">EN</span>
         </button>
       </nav>
     </div>
@@ -44,52 +74,52 @@
     <!-- JS renders views here: directory grid OR department detail -->
   </main>
 
-  <footer class="site-footer">
-    <div class="wrap footer-row">
+  <footer class="border-t border-slate-200 bg-white py-6 sm:py-8">
+    <div class="mx-auto flex max-w-6xl flex-col items-center gap-2 px-4 text-center text-sm text-slate-500 sm:flex-row sm:justify-between sm:px-6 sm:text-left">
       <p>© <span id="year"></span> <span data-i18n="footerBrand">SSMI ສິນຊັບເມືອງເໜືອ</span></p>
-      <p class="footer-note" data-i18n="footerNote">ຂໍ້ມູນຜູ້ສະໝັກຈະຖືກສົ່ງຕົງເຖິງຝ່າຍບຸກຄະລາກອນເພື່ອພິຈາລະນາ</p>
+      <p class="text-slate-400" data-i18n="footerNote">ຂໍ້ມູນຜູ້ສະໝັກຈະຖືກສົ່ງຕົງເຖິງຝ່າຍບຸກຄະລາກອນເພື່ອພິຈາລະນາ</p>
     </div>
   </footer>
 
   <!-- Application modals -->
-  <div id="apply-overlay" class="overlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="apply-title">
-      <button class="modal-close" id="apply-close" aria-label="Close">✕</button>
+  <div id="apply-overlay" class="fixed inset-0 z-[100] hidden items-start justify-center overflow-y-auto bg-slate-900/70 p-0 backdrop-blur-md sm:items-center sm:p-6" hidden>
+    <div class="relative min-h-screen w-full max-w-lg rounded-none border-0 border-white/60 bg-white p-6 shadow-2xl shadow-indigo-500/20 sm:min-h-0 sm:rounded-3xl sm:border sm:p-8" role="dialog" aria-modal="true" aria-labelledby="apply-title">
+      <button class="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-700" id="apply-close" aria-label="Close">✕</button>
 
-      <div class="modal-head">
-        <p class="modal-eyebrow" id="apply-dept-label">ຝ່າຍ</p>
-        <h2 id="apply-title">ສະໝັກຕຳແໜ່ງ </h2>
+      <div class="mb-6 pr-10">
+        <p class="mb-1 font-mono text-xs font-bold uppercase tracking-widest text-indigo-600" id="apply-dept-label">ຝ່າຍ</p>
+        <h2 class="font-display text-xl font-bold text-slate-900 sm:text-2xl" id="apply-title">ສະໝັກຕຳແໜ່ງ </h2>
       </div>
 
-      <form id="apply-form" novalidate>
+      <form id="apply-form" novalidate class="space-y-4">
         <input type="hidden" id="field-department">
         <input type="hidden" id="field-department-id">
         <input type="hidden" id="field-position">
 
-        <div class="field-grid">
-          <label class="field">
-            <span data-i18n="fName">ຊື່ ແລະ ນາມສະກຸນ <em>*</em></span>
-            <input type="text" id="field-name" required autocomplete="name">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label class="block">
+            <span class="mb-1.5 block text-sm font-semibold text-slate-700" data-i18n="fName">ຊື່ ແລະ ນາມສະກຸນ <em>*</em></span>
+            <input type="text" id="field-name" required autocomplete="name" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10">
           </label>
-          <label class="field">
-            <span data-i18n="fEmail">ອີເມວ <em>*</em></span>
-            <input type="email" id="field-email" required autocomplete="email">
+          <label class="block">
+            <span class="mb-1.5 block text-sm font-semibold text-slate-700" data-i18n="fEmail">ອີເມວ <em>*</em></span>
+            <input type="email" id="field-email" required autocomplete="email" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10">
           </label>
-          <label class="field">
-            <span data-i18n="fPhone">ເບີໂທລະສັບ <em>*</em></span>
-            <input type="tel" id="field-phone" required autocomplete="tel">
+          <label class="block">
+            <span class="mb-1.5 block text-sm font-semibold text-slate-700" data-i18n="fPhone">ເບີໂທລະສັບ <em>*</em></span>
+            <input type="tel" id="field-phone" required autocomplete="tel" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10">
           </label>
         </div>
 
         <!-- ຊ່ອງກອກເພີ່ມເຕີມ — ໂຄງສ້າງມາຈາກ Firestore (settings/applicationForm)
              ຈັດການໄດ້ຈາກໜ້າ admin → ແທັບ "ຕັ້ງຄ່າ" ໂດຍບໍ່ຕ້ອງແກ້ໂຄດ -->
-        <div id="custom-fields"></div>
+        <div id="custom-fields" class="space-y-4"></div>
 
-        <p class="form-note" data-i18n="formNote">ເມື່ອກົດສົ່ງ ຂໍ້ມູນຂອງທ່ານຈະຖືກບັນທຶກເຂົ້າລະບົບ ແລະ ແຈ້ງເຕືອນຝ່າຍບຸກຄະລາກອນໂດຍອັດຕະໂນມັດ</p>
+        <p class="text-xs text-slate-400" data-i18n="formNote">ເມື່ອກົດສົ່ງ ຂໍ້ມູນຂອງທ່ານຈະຖືກບັນທຶກເຂົ້າລະບົບ ແລະ ແຈ້ງເຕືອນຝ່າຍບຸກຄະລາກອນໂດຍອັດຕະໂນມັດ</p>
 
-        <div class="form-actions">
-          <button type="submit" class="btn btn--primary" id="apply-submit" data-i18n="submit">ສົ່ງໃບສະໝັກ</button>
-          <span class="form-status" id="apply-status" role="status"></span>
+        <div class="flex flex-wrap items-center gap-4 pt-1">
+          <button type="submit" class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/40 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50" id="apply-submit" data-i18n="submit">ສົ່ງໃບສະໝັກ</button>
+          <span class="text-sm font-semibold text-slate-500" id="apply-status" role="status"></span>
         </div>
       </form>
     </div>

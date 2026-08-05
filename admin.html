@@ -10,8 +10,8 @@
 <link rel="icon" type="image/png" href="SSMI LOGO FINAL3.png">
 <link rel="apple-touch-icon" href="SSMI LOGO FINAL3.png">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="admin.css">
+<link rel="stylesheet" href="hero-theme.css">
+<link rel="stylesheet" href="admin-theme.css">
 </head>
 <body>
 
@@ -58,73 +58,78 @@
   <!-- ================= ADMIN VIEW ================= -->
   <main id="admin-view" hidden>
     <section class="admin-shell">
-      <div class="wrap">
+      <div class="wrap admin-layout">
 
-        <div class="admin-head">
-          <div>
-            <h1>ແຜງຄວບຄຸມ</h1>
-            <p class="admin-user">ຜູ້ໃຊ້ແມ່ນ: <b id="admin-email"></b></p>
-          </div>
-          <div class="admin-tabs" role="tablist">
+        <aside class="admin-sidebar">
+          <nav class="admin-tabs" role="tablist">
             <button class="tab-btn is-active" data-tab="departments">ຈັດການພະແນກ</button>
             <button class="tab-btn" data-tab="applications">ໃບສະໝັກວຽກ <span class="tab-count" id="app-count"></span></button>
             <button class="tab-btn" data-tab="settings">ຕັ້ງຄ່າ</button>
+          </nav>
+          <div class="admin-sidebar-foot">
+            <p class="admin-user">ຜູ້ໃຊ້ແມ່ນ: <b id="admin-email"></b></p>
           </div>
-        </div>
+        </aside>
 
-        <!-- ---------- TAB: DEPARTMENTS ---------- -->
-        <div id="tab-departments" class="tab-panel">
-          <div class="panel-toolbar">
-            <button class="btn btn--primary" id="add-dept-btn">+ ເພີ່ມພະແນກການໃໝ່</button>
-            
-            <span class="form-status" id="dept-status" role="status"></span>
-          </div>
-          <div id="dept-admin-list" class="dept-admin-list">
-            <!-- rendered by admin.js -->
-          </div>
-        </div>
-
-        <!-- ---------- TAB: SETTINGS ---------- -->
-        <div id="tab-settings" class="tab-panel" hidden>
-
-          <div class="settings-block">
-            <h3>ອີເມວທີ່ແຈ້ງເຕືອນເວລາມີໃບສະໝັກໃໝ່</h3>
-            <p class="settings-sub">ເມື່ອມີຄົນສົ່ງໃບສະໝັກ ລະບົບຈະສົ່ງອີເມວແຈ້ງໄປຫາທີ່ຢູ່ເຫຼົ່ານີ້ (1 ແຖວ = 1 ອີເມວ)
-            — ຕ້ອງຕິດຕັ້ງ Extension "Trigger Email from Firestore" ກ່ອນ ອີເມວຈຶ່ງຈະຖືກສົ່ງແທ້ (ເບິ່ງ README)</p>
-            <form id="notify-form" novalidate>
-              <label class="field">
-                <span>ລາຍຊື່ອີເມວຜູ້ຮັບ</span>
-                <textarea id="notify-emails" rows="4" placeholder="admin.hr@ssmilaos.com&#10;manager@ssmilaos.com"></textarea>
-              </label>
-              <div class="form-actions">
-                <button type="submit" class="btn btn--primary">ບັນທຶກອີເມວແຈ້ງເຕືອນ</button>
-                <span class="form-status" id="notify-status" role="status"></span>
-              </div>
-            </form>
+        <div class="admin-content">
+          <div class="admin-head">
+            <h1>ແຜງຄວບຄຸມ</h1>
           </div>
 
-          <div class="settings-block">
-            <h3>ຊ່ອງກອກໃນຟອມສະໝັກງານ</h3>
-            <p class="settings-sub">ຊ່ອງ <b>ຊື່ / ອີເມວ / ເບີໂທລະສັບ</b> ເປັນຊ່ອງບັງຄັບຖາວອນຂອງລະບົບ ລຶບບໍ່ໄດ້
-            — ຊ່ອງອື່ນໆລຸ່ມນີ້ ສາມາດເພີ່ມ/ລຶບ/ຈັດລຳດັບ/ຕັ້ງເປັນຊ່ອງບັງຄັບໄດ້ຕາມຕ້ອງການ
-            ຮອງຮັບທັງຂໍ້ຄວາມ ຕົວເລືອກ ແນບໄຟລ໌ PDF ແລະ ແນບຮູບພາບ</p>
+          <!-- ---------- TAB: DEPARTMENTS ---------- -->
+          <div id="tab-departments" class="tab-panel">
             <div class="panel-toolbar">
-              <button type="button" class="btn btn--primary" id="add-form-field-btn">+ ເພີ່ມຊ່ອງກອກ</button>
-              <button type="button" class="btn btn--ghost" id="save-form-fields-btn">ບັນທຶກຟອມ</button>
-              <span class="form-status" id="form-fields-status" role="status"></span>
+              <button class="btn btn--primary" id="add-dept-btn">+ ເພີ່ມພະແນກການໃໝ່</button>
+
+              <span class="form-status" id="dept-status" role="status"></span>
             </div>
-            <div id="form-fields-container"><!-- rendered by admin.js --></div>
+            <div id="dept-admin-list" class="dept-admin-list">
+              <!-- rendered by admin.js -->
+            </div>
           </div>
 
-        </div>
+          <!-- ---------- TAB: SETTINGS ---------- -->
+          <div id="tab-settings" class="tab-panel" hidden>
 
-        <div id="tab-applications" class="tab-panel" hidden>
-          <div class="panel-toolbar">
-            <button class="btn btn--ghost" id="reload-apps-btn">ໂຫຼດຂໍ້ມູນໃໝ່</button>
-            <span class="form-status" id="apps-status" role="status"></span>
+            <div class="settings-block">
+              <h3>ອີເມວທີ່ແຈ້ງເຕືອນເວລາມີໃບສະໝັກໃໝ່</h3>
+              <p class="settings-sub">ເມື່ອມີຄົນສົ່ງໃບສະໝັກ ລະບົບຈະສົ່ງອີເມວແຈ້ງໄປຫາທີ່ຢູ່ເຫຼົ່ານີ້ (1 ແຖວ = 1 ອີເມວ)
+              — ຕ້ອງຕິດຕັ້ງ Extension "Trigger Email from Firestore" ກ່ອນ ອີເມວຈຶ່ງຈະຖືກສົ່ງແທ້ (ເບິ່ງ README)</p>
+              <form id="notify-form" novalidate>
+                <label class="field">
+                  <span>ລາຍຊື່ອີເມວຜູ້ຮັບ</span>
+                  <textarea id="notify-emails" rows="4" placeholder="admin.hr@ssmilaos.com&#10;manager@ssmilaos.com"></textarea>
+                </label>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn--primary">ບັນທຶກອີເມວແຈ້ງເຕືອນ</button>
+                  <span class="form-status" id="notify-status" role="status"></span>
+                </div>
+              </form>
+            </div>
+
+            <div class="settings-block">
+              <h3>ຊ່ອງກອກໃນຟອມສະໝັກງານ</h3>
+              <p class="settings-sub">ຊ່ອງ <b>ຊື່ / ອີເມວ / ເບີໂທລະສັບ</b> ເປັນຊ່ອງບັງຄັບຖາວອນຂອງລະບົບ ລຶບບໍ່ໄດ້
+              — ຊ່ອງອື່ນໆລຸ່ມນີ້ ສາມາດເພີ່ມ/ລຶບ/ຈັດລຳດັບ/ຕັ້ງເປັນຊ່ອງບັງຄັບໄດ້ຕາມຕ້ອງການ
+              ຮອງຮັບທັງຂໍ້ຄວາມ ຕົວເລືອກ ແນບໄຟລ໌ PDF ແລະ ແນບຮູບພາບ</p>
+              <div class="panel-toolbar">
+                <button type="button" class="btn btn--primary" id="add-form-field-btn">+ ເພີ່ມຊ່ອງກອກ</button>
+                <button type="button" class="btn btn--ghost" id="save-form-fields-btn">ບັນທຶກຟອມ</button>
+                <span class="form-status" id="form-fields-status" role="status"></span>
+              </div>
+              <div id="form-fields-container"><!-- rendered by admin.js --></div>
+            </div>
+
           </div>
-          <div id="apps-list" class="apps-list">
-            <!-- rendered by admin.js -->
+
+          <div id="tab-applications" class="tab-panel" hidden>
+            <div class="panel-toolbar">
+              <button class="btn btn--ghost" id="reload-apps-btn">ໂຫຼດຂໍ້ມູນໃໝ່</button>
+              <span class="form-status" id="apps-status" role="status"></span>
+            </div>
+            <div id="apps-list" class="apps-list">
+              <!-- rendered by admin.js -->
+            </div>
           </div>
         </div>
 
