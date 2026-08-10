@@ -179,7 +179,7 @@ function renderDepartmentList(){
           <div class="dept-admin-meta">
             <span>ລຳດັບ: ${d.order ?? "-"}</span>
             <span>${(d.responsibilities || []).length} ພາລະກິດ</span>
-            <span>ເປີດຮັບ ${(d.positions || []).filter(p => p.open !== false).length} / ${(d.positions || []).length} ຕຳແໜ່ງ</span>
+            <span>${(d.positions || []).length} ຕຳແໜ່ງໃນຄັງ (ໃຊ້ງານ ${(d.positions || []).filter(p => p.active !== false).length})</span>
           </div>
         </div>
       </div>
@@ -251,8 +251,8 @@ function positionBlockHtml(p = {}){
         <span class="position-edit-label">ຕຳແໜ່ງ</span>
         <div class="field-block-actions">
           <label class="check-inline">
-            <input type="checkbox" class="pos-open" ${p.open === false ? "" : "checked"}>
-            <span>ເປີດຮັບສະໝັກ</span>
+            <input type="checkbox" class="pos-active" ${p.active === false ? "" : "checked"}>
+            <span>ໃຊ້ງານຢູ່ (ຕິກອອກ = ເຊື່ອງທຸກສາຂາ)</span>
           </label>
           <button type="button" class="btn btn--danger btn--sm" data-remove-position>ລຶບຕຳແໜ່ງນີ້</button>
         </div>
@@ -333,7 +333,7 @@ $("dept-form").addEventListener("submit", async e => {
   const positions = [...positionsContainer.querySelectorAll(".position-edit-block")].map(block => ({
     id: block.dataset.posId || genId("pos"),
     title: block.querySelector(".pos-title").value.trim(),
-    open: block.querySelector(".pos-open").checked,
+    active: block.querySelector(".pos-active").checked,
     type: block.querySelector(".pos-type").value.trim() || "ເຕັມເວລາ",
     description: block.querySelector(".pos-description").value.trim(),
     duties: linesToArray(block.querySelector(".pos-duties").value)
@@ -358,6 +358,7 @@ $("dept-form").addEventListener("submit", async e => {
     }
     setStatus($("dept-form-status"), "ບັນທຶກຮຽບຮ້ອຍ", "ok");
     await loadDepartments();
+    await loadBranches();
     setTimeout(closeDeptModal, 700);
   } catch (err){
     console.error(err);
@@ -368,8 +369,12 @@ $("dept-form").addEventListener("submit", async e => {
 });
 
 /* ==========================================================================
-   BRANCHES — สาขา/แขวง: จัดการรายชื่อสาขา และเลือกว่าแต่ละสาขาเปิดรับ
-   ตำแหน่งใดบ้าง (อ้างอิง position.id จากชุดตำแหน่งของแผนกต่างๆ ด้านบน)
+   BRANCHES — ສາຂາ/ແຂວງ  (ຈັດການແຍກ "ໃຜສາຂາມັນ")
+   ແຕ່ລະສາຂາເລືອກເອງວ່າ "ມີ" ຕຳແໜ່ງໃດແດ່ ໂດຍອ້າງອີງ position.id ຈາກຄັງຕຳແໜ່ງ
+   ຂອງທັງອົງກອນ (ແທັບ "ຈັດການພະແນກ") ແລ້ວໃສ່ຈຳນວນອັດຕາທີ່ຕ້ອງການຮັບ
+     count = 0  →  ສາຂາມີຕຳແໜ່ງນີ້ ແຕ່ຍັງບໍ່ເປີດຮັບ (ຜູ້ສົນໃຈຝາກປະຫວັດໄວ້ໄດ້)
+     count ≥ 1  →  ເປີດຮັບ N ອັດຕາ
+   ຕຳແໜ່ງທີ່ບໍ່ໄດ້ເພີ່ມໄວ້ໃນສາຂາ = ຈະບໍ່ສະແດງໃນສາຂານັ້ນເລີຍ
    ========================================================================== */
 let branches = [];
 
@@ -379,11 +384,52 @@ async function loadBranches(){
   try {
     const snap = await getDocs(query(collection(db, BRANCHES_COLLECTION), orderBy("order")));
     branches = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    branches.forEach(migrateBranchShape);
     renderBranchList();
   } catch (err){
     console.error(err);
     listEl.innerHTML = `<p class="admin-error">ໂຫຼດຂໍ້ມູນບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
   }
+}
+
+/* ຂໍ້ມູນເກົ່າທີ່ເກັບເປັນ positionIds: ["pos1","pos2"] → ແປງເປັນ openings ອັດຕະໂນມັດ
+   (ຄ່າເລີ່ມຕົ້ນ count = 0 ໝາຍເຖິງ "ມີຕຳແໜ່ງ ແຕ່ຍັງບໍ່ເປີດຮັບ") */
+function migrateBranchShape(b){
+  if(!Array.isArray(b.openings)){
+    b.openings = Array.isArray(b.positionIds)
+      ? b.positionIds.map(id => ({ posId: id, count: 0 }))
+      : [];
+  }
+  b.openings = b.openings
+    .filter(op => op && op.posId)
+    .map(op => ({ posId: op.posId, count: Math.max(0, Number(op.count) || 0) }));
+  return b;
+}
+
+/* ---------- ຄັງຕຳແໜ່ງທັງອົງກອນ (ດຶງມາຈາກທຸກພະແນກ) ---------- */
+function catalogPositions(){
+  const out = [];
+  departments.forEach(d => (d.positions || []).forEach(p => {
+    if(p.active === false) return;
+    out.push({ ...p, deptName: d.name, deptCode: d.code });
+  }));
+  return out;
+}
+
+function findPosition(posId){
+  for(const d of departments){
+    const p = (d.positions || []).find(x => x.id === posId);
+    if(p) return { ...p, deptName: d.name, deptCode: d.code };
+  }
+  return null;
+}
+
+function branchSummaryText(b){
+  const ops = b.openings || [];
+  const listed = b.allPositions ? catalogPositions().length : ops.length;
+  const hiring = ops.filter(o => Number(o.count) > 0).length;
+  const seats  = ops.reduce((sum, o) => sum + (Number(o.count) || 0), 0);
+  return `ມີ ${listed} ຕຳແໜ່ງ · ເປີດຮັບ ${hiring} ຕຳແໜ່ງ (${seats} ອັດຕາ)`;
 }
 
 function renderBranchList(){
@@ -404,7 +450,8 @@ function renderBranchList(){
           <h3>${escapeHtml(b.name || "(ບໍ່ມີຊື່)")}</h3>
           <div class="dept-admin-meta">
             <span>ລຳດັບ: ${b.order ?? "-"}</span>
-            <span>${b.allPositions ? "ເປີດຮັບທຸກຕຳແໜ່ງ" : `${(b.positionIds || []).length} ຕຳແໜ່ງທີ່ເລືອກ`}</span>
+            <span>${branchSummaryText(b)}</span>
+            ${b.allPositions ? `<span>ສະແດງທຸກຕຳແໜ່ງໃນຄັງ</span>` : ""}
           </div>
         </div>
       </div>
@@ -447,7 +494,7 @@ async function moveBranch(docId, dir){
 async function deleteBranch(docId){
   const b = branches.find(x => x.docId === docId);
   if(!b) return;
-  const ok = confirm(`ຢືນຢັນລຶບສາຂາ "${b.name}" ?\nໜ້າເວັບສາທາລະນະຈະບໍ່ສະແດງແທັບສາຂານີ້ອີກ`);
+  const ok = confirm(`ຢືນຢັນລຶບສາຂາ "${b.name}" ?\nໜ້າເວັບສາທາລະນະຈະບໍ່ສະແດງແທັບສາຂານີ້ອີກ\n(ຄັງຕຳແໜ່ງຂອງພະແນກຈະບໍ່ຖືກລຶບ)`);
   if(!ok) return;
   try {
     await deleteDoc(doc(db, BRANCHES_COLLECTION, docId));
@@ -459,16 +506,21 @@ async function deleteBranch(docId){
   }
 }
 
-/* ---------- ตัวเลือกตำแหน่ง (checklist แยกตามพะแนก) ---------- */
-/* ---------- ตัวเลือกตำแหน่ง (แบบระบุจำนวนรับสมัคร) ---------- */
+/* ==========================================================================
+   BRANCH MODAL — ເລືອກຕຳແໜ່ງທີ່ສາຂານີ້ມີ + ໃສ່ຈຳນວນອັດຕາ
+   ========================================================================== */
+const branchOverlay = $("branch-overlay");
+const branchAllPositionsCheck = $("branch-all-positions");
+const branchPositionsContainer = $("branch-positions-container");
 
-// ฟังก์ชันสร้างตัวเลือก <option> โดยจัดกลุ่มตามแผนก
-function getPositionOptionsHtml(selectedPosId = "") {
-  let html = '<option value="">-- ເລືອກຕຳແໜ່ງ --</option>';
+/* <option> ຂອງຕຳແໜ່ງ ຈັດກຸ່ມຕາມພະແນກ */
+function getPositionOptionsHtml(selectedPosId = ""){
+  let html = '<option value="">— ເລືອກຕຳແໜ່ງ —</option>';
   departments.forEach(d => {
-    if (!d.positions || !d.positions.length) return;
-    html += `<optgroup label="${escapeHtml(d.name || d.code)}">`;
-    d.positions.forEach(p => {
+    const list = (d.positions || []).filter(p => p.active !== false);
+    if(!list.length) return;
+    html += `<optgroup label="${escapeHtml(d.name || d.code || "")}">`;
+    list.forEach(p => {
       const sel = (p.id === selectedPosId) ? "selected" : "";
       html += `<option value="${escapeHtml(p.id)}" ${sel}>${escapeHtml(p.title)}</option>`;
     });
@@ -477,41 +529,75 @@ function getPositionOptionsHtml(selectedPosId = "") {
   return html;
 }
 
-// ฟังก์ชันสร้างแถวสำหรับ 1 การเปิดรับ (เลือกตำแหน่ง + จำนวน)
-function branchOpeningRowHtml(op = {}) {
+function branchOpeningRowHtml(op = {}){
+  const orphan = op.posId && !findPosition(op.posId);
   return `
-    <div class="branch-opening-block field-grid" style="align-items: end; margin-bottom: 1rem; border-bottom: 1px dashed #e2e8f0; padding-bottom: 1rem;">
-      <label class="field" style="flex: 2; margin-bottom: 0;">
-        <span>ເລືອກຕຳແໜ່ງ <em>*</em></span>
-        <select class="bo-pos-id" required>
+    <div class="branch-opening-block field-grid" style="align-items:end;margin-bottom:1rem;border-bottom:1px dashed #e2e8f0;padding-bottom:1rem;">
+      <label class="field" style="flex:2;margin-bottom:0;">
+        <span>ຕຳແໜ່ງ <em>*</em></span>
+        <select class="bo-pos-id">
           ${getPositionOptionsHtml(op.posId)}
+          ${orphan ? `<option value="${escapeHtml(op.posId)}" selected>(ຕຳແໜ່ງນີ້ຖືກລຶບອອກຈາກຄັງແລ້ວ)</option>` : ""}
         </select>
       </label>
-      <label class="field" style="flex: 1; margin-bottom: 0;">
-        <span>ຈຳນວນທີ່ຮັບ (ຄົນ) <em>*</em></span>
-        <input type="number" class="bo-count" value="${op.count || 1}" min="1" required>
+      <label class="field" style="flex:1;margin-bottom:0;">
+        <span>ຈຳນວນອັດຕາທີ່ຮັບ (0 = ຝາກປະຫວັດ)</span>
+        <input type="number" class="bo-count" value="${Math.max(0, Number(op.count) || 0)}" min="0" step="1">
       </label>
-      <button type="button" class="btn btn--danger" data-remove-opening style="margin-bottom: 4px;">ລຶບ</button>
+      <button type="button" class="btn btn--danger" data-remove-opening style="margin-bottom:4px;">ລຶບ</button>
     </div>
   `;
 }
 
-const branchOverlay = $("branch-overlay");
-const branchAllPositionsCheck = $("branch-all-positions");
-const branchPositionsWrap = $("branch-positions-wrap");
-const branchPositionsContainer = $("branch-positions-container");
-
-function updateBranchPositionsWrapState(){
-  branchPositionsWrap.classList.toggle("is-disabled", branchAllPositionsCheck.checked);
-  branchPositionsWrap.querySelectorAll("input, select, button").forEach(el => { el.disabled = branchAllPositionsCheck.checked; });
+function addOpeningRow(op = {}){
+  branchPositionsContainer.insertAdjacentHTML("beforeend", branchOpeningRowHtml(op));
+  const block = branchPositionsContainer.lastElementChild;
+  block.querySelector("[data-remove-opening]").addEventListener("click", () => {
+    block.remove();
+    updateBranchOpeningsSummary();
+  });
+  block.querySelector(".bo-count").addEventListener("input", updateBranchOpeningsSummary);
+  block.querySelector(".bo-pos-id").addEventListener("change", updateBranchOpeningsSummary);
+  updateBranchOpeningsSummary();
+  return block;
 }
-branchAllPositionsCheck.addEventListener("change", updateBranchPositionsWrapState);
 
-// ปุ่มสำหรับกดเพิ่มแถว
-$("add-branch-opening-btn").addEventListener("click", () => {
-  branchPositionsContainer.insertAdjacentHTML("beforeend", branchOpeningRowHtml({}));
-  const newBlock = branchPositionsContainer.lastElementChild;
-  newBlock.querySelector("[data-remove-opening]").addEventListener("click", () => newBlock.remove());
+function currentOpeningsFromDom(){
+  const seen = new Set();
+  return [...branchPositionsContainer.querySelectorAll(".branch-opening-block")]
+    .map(block => ({
+      posId: block.querySelector(".bo-pos-id").value,
+      count: Math.max(0, Number(block.querySelector(".bo-count").value) || 0)
+    }))
+    .filter(op => {
+      if(!op.posId || seen.has(op.posId)) return false;   // ຕັດຕຳແໜ່ງຊ້ຳ / ຍັງບໍ່ໄດ້ເລືອກ
+      seen.add(op.posId);
+      return true;
+    });
+}
+
+function updateBranchOpeningsSummary(){
+  const el = $("branch-openings-summary");
+  if(!el) return;
+  const ops = currentOpeningsFromDom();
+  const hiring = ops.filter(o => o.count > 0).length;
+  const seats  = ops.reduce((s, o) => s + o.count, 0);
+  el.textContent = `ລວມ ${ops.length} ຕຳແໜ່ງ · ເປີດຮັບ ${hiring} ຕຳແໜ່ງ (${seats} ອັດຕາ) · ອີກ ${ops.length - hiring} ຕຳແໜ່ງໄວ້ຝາກປະຫວັດ`;
+}
+
+/* ປຸ່ມ "+ ເພີ່ມການເປີດຮັບ" */
+$("add-branch-opening-btn").addEventListener("click", () => addOpeningRow({}));
+
+/* ປຸ່ມ "+ ເພີ່ມທຸກຕຳແໜ່ງໃນຄັງ" — ໃສ່ໃຫ້ຄົບທຸກຕຳແໜ່ງດ້ວຍ count = 0 ແລ້ວຄ່ອຍປັບເອງ */
+$("add-branch-all-positions-btn")?.addEventListener("click", () => {
+  const already = new Set(currentOpeningsFromDom().map(o => o.posId));
+  const missing = catalogPositions().filter(p => !already.has(p.id));
+  if(!missing.length){
+    setStatus($("branch-form-status"), "ຄົບທຸກຕຳແໜ່ງໃນຄັງແລ້ວ", "ok");
+    return;
+  }
+  missing.forEach(p => addOpeningRow({ posId: p.id, count: 0 }));
+  setStatus($("branch-form-status"), `ເພີ່ມອີກ ${missing.length} ຕຳແໜ່ງ (ຈຳນວນ = 0) — ປັບຈຳນວນແລ້ວກົດບັນທຶກ`, "ok");
 });
 
 function openBranchModal(docId = null){
@@ -522,19 +608,11 @@ function openBranchModal(docId = null){
   $("branch-name").value = b?.name || "";
   $("branch-order").value = b?.order ?? (branches.length + 1);
   branchAllPositionsCheck.checked = !!b?.allPositions;
-  
-  // Render ข้อมูลการเปิดรับเดิม (ถ้ามี)
-  branchPositionsContainer.innerHTML = "";
-  const openings = b?.openings || []; 
-  if (openings.length > 0) {
-    openings.forEach(op => {
-      branchPositionsContainer.insertAdjacentHTML("beforeend", branchOpeningRowHtml(op));
-      const block = branchPositionsContainer.lastElementChild;
-      block.querySelector("[data-remove-opening]").addEventListener("click", () => block.remove());
-    });
-  }
 
-  updateBranchPositionsWrapState();
+  branchPositionsContainer.innerHTML = "";
+  (b?.openings || []).forEach(op => addOpeningRow(op));
+  updateBranchOpeningsSummary();
+
   setStatus($("branch-form-status"), "");
   branchOverlay.hidden = false;
   document.body.style.overflow = "hidden";
@@ -551,7 +629,7 @@ $("branch-close").addEventListener("click", closeBranchModal);
 branchOverlay.addEventListener("click", e => { if(e.target === branchOverlay) closeBranchModal(); });
 document.addEventListener("keydown", e => { if(e.key === "Escape" && !branchOverlay.hidden) closeBranchModal(); });
 
-// บันทึกข้อมูลสาขา
+/* ບັນທຶກສາຂາ — ມີ handler ອັນດຽວເທົ່ານັ້ນ (ຢ່າເພີ່ມອັນທີສອງ ຈະທັບກັນເອງ) */
 $("branch-form").addEventListener("submit", async e => {
   e.preventDefault();
   const docId = $("branch-doc-id").value;
@@ -562,22 +640,13 @@ $("branch-form").addEventListener("submit", async e => {
     return;
   }
 
-  const allPositions = branchAllPositionsCheck.checked;
-  
-  // ดึงข้อมูลจากแถวที่เพิ่มไว้ เปลี่ยนจาก array ของ ID เป็น array ของ Object {posId, count}
-  const openings = allPositions ? [] : [...branchPositionsContainer.querySelectorAll(".branch-opening-block")].map(block => {
-    return {
-      posId: block.querySelector(".bo-pos-id").value,
-      count: Number(block.querySelector(".bo-count").value) || 1
-    };
-  }).filter(op => op.posId); // เอาเฉพาะอันที่เลือกตำแหน่งแล้ว
-
+  const openings = currentOpeningsFromDom();
   const data = {
     code: code.toUpperCase(),
     name,
     order: Number($("branch-order").value) || branches.length + 1,
-    allPositions,
-    openings // บันทึกตัวแปร openings แบบใหม่เข้าไป
+    allPositions: branchAllPositionsCheck.checked,
+    openings
   };
 
   $("branch-save").disabled = true;
@@ -588,47 +657,8 @@ $("branch-form").addEventListener("submit", async e => {
     } else {
       await addDoc(collection(db, BRANCHES_COLLECTION), data);
     }
-    setStatus($("branch-form-status"), "ບັນທຶກຮຽບຮ້ອຍ", "ok");
-    await loadBranches();
-    setTimeout(closeBranchModal, 700);
-  } catch (err){
-    console.error(err);
-    setStatus($("branch-form-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
-  } finally {
-    $("branch-save").disabled = false;
-  }
-});
-
-$("branch-form").addEventListener("submit", async e => {
-  e.preventDefault();
-  const docId = $("branch-doc-id").value;
-  const code = $("branch-code").value.trim();
-  const name = $("branch-name").value.trim();
-  if(!code || !name){
-    setStatus($("branch-form-status"), "ກະລຸນາປ້ອນລະຫັດສາຂາ ແລະ ຊື່ສາຂາ", "err");
-    return;
-  }
-
-  const allPositions = branchAllPositionsCheck.checked;
-  const positionIds = allPositions ? [] : [...$("branch-positions-container").querySelectorAll(".branch-pos-check:checked")].map(el => el.value);
-
-  const data = {
-    code: code.toUpperCase(),
-    name,
-    order: Number($("branch-order").value) || branches.length + 1,
-    allPositions,
-    positionIds
-  };
-
-  $("branch-save").disabled = true;
-  setStatus($("branch-form-status"), "ກຳລັງບັນທຶກ...");
-  try {
-    if(docId){
-      await setDoc(doc(db, BRANCHES_COLLECTION, docId), data);
-    } else {
-      await addDoc(collection(db, BRANCHES_COLLECTION), data);
-    }
-    setStatus($("branch-form-status"), "ບັນທຶກຮຽບຮ້ອຍ", "ok");
+    const seats = openings.reduce((s, o) => s + o.count, 0);
+    setStatus($("branch-form-status"), `ບັນທຶກຮຽບຮ້ອຍ (${openings.length} ຕຳແໜ່ງ · ${seats} ອັດຕາ)`, "ok");
     await loadBranches();
     setTimeout(closeBranchModal, 700);
   } catch (err){

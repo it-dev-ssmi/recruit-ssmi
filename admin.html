@@ -84,6 +84,8 @@
 
               <span class="form-status" id="dept-status" role="status"></span>
             </div>
+            <p class="settings-sub">ແທັບນີ້ຄື <b>ຄັງຕຳແໜ່ງຂອງທັງອົງກອນ</b> — ໃສ່ໄວ້ວ່າອົງກອນມີຕຳແໜ່ງໃດແດ່ (ຊື່ ປະເພດ ພາລະໜ້າທີ່)
+            ໂດຍຍັງບໍ່ຕ້ອງລະບຸວ່າສາຂາໃດຮັບ — ການເປີດຮັບ ແລະ ຈຳນວນອັດຕາ ໃຫ້ໄປຕັ້ງເອົາຢູ່ແທັບ "ຈັດການສາຂາ" ໃຜສາຂາມັນ</p>
             <div id="dept-admin-list" class="dept-admin-list">
               <!-- rendered by admin.js -->
             </div>
@@ -95,8 +97,10 @@
               <button class="btn btn--primary" id="add-branch-btn">+ ເພີ່ມສາຂາໃໝ່</button>
               <span class="form-status" id="branch-status" role="status"></span>
             </div>
-            <p class="settings-sub">ແຕ່ລະສາຂາເລືອກໄດ້ວ່າຈະເປີດຮັບຕຳແໜ່ງໃດແດ່ຈາກຊຸດຕຳແໜ່ງຂອງພະແນກຕ່າງໆ (ແທັບ "ຈັດການພະແນກ")
-            — ຫາກຕັ້ງເປັນ "ເປີດຮັບທຸກຕຳແໜ່ງ" ຈະສະແດງທຸກຕຳແໜ່ງທີ່ເປີດຮັບຢູ່ໂດຍອັດຕະໂນມັດ ໂດຍບໍ່ຕ້ອງເລືອກເອງ (ໃຊ້ກັບສຳນັກງານໃຫຍ່)</p>
+            <p class="settings-sub">ແຕ່ລະສາຂາເລືອກເອງວ່າ <b>ມີຕຳແໜ່ງໃດແດ່</b> ຈາກຄັງຕຳແໜ່ງ (ແທັບ "ຈັດການພະແນກ") ແລ້ວໃສ່ຈຳນວນອັດຕາ:
+            <br>• <b>ຈຳນວນ = 0</b> → ສາຂາມີຕຳແໜ່ງນີ້ ແຕ່ຍັງບໍ່ເປີດຮັບ (ຂຶ້ນໄວ້ໃຫ້ຄົນສົນໃຈ "ຝາກປະຫວັດ")
+            <br>• <b>ຈຳນວນ ≥ 1</b> → ເປີດຮັບຈຳນວນອັດຕານັ້ນ ແລະ ຈະຂຶ້ນປ້າຍສີຂຽວຢູ່ໜ້າເວັບ
+            <br>• ຕຳແໜ່ງທີ່ບໍ່ໄດ້ເພີ່ມໄວ້ → ຈະບໍ່ສະແດງໃນສາຂານັ້ນເລີຍ</p>
             <div id="branch-admin-list" class="dept-admin-list">
               <!-- rendered by admin.js -->
             </div>
@@ -237,15 +241,19 @@
 
         <label class="check-inline">
           <input type="checkbox" id="branch-all-positions">
-          <span>ເປີດຮັບທຸກຕຳແໜ່ງ (ໃຊ້ກັບສຳນັກງານໃຫຍ່ — ບໍ່ຕ້ອງເລືອກຕຳແໜ່ງດ້ານລຸ່ມ)</span>
+          <span>ສະແດງທຸກຕຳແໜ່ງໃນຄັງຢູ່ສາຂານີ້ (ໃຊ້ກັບສຳນັກງານໃຫຍ່) — ຕຳແໜ່ງທີ່ບໍ່ໄດ້ໃສ່ຈຳນວນຢູ່ລຸ່ມນີ້ ຈະຖືວ່າ "ຝາກປະຫວັດ"</span>
         </label>
 
         <div class="positions-editor" id="branch-positions-wrap">
           <div class="positions-editor-head">
-            <h4>ຕຳແໜ່ງທີ່ເປີດຮັບໃນສາຂານີ້</h4>
-            <!-- เพิ่มปุ่มสำหรับกดเพิ่มแถวตำแหน่ง -->
-            <button type="button" class="btn btn--ghost btn--sm" id="add-branch-opening-btn">+ ເພີ່ມການເປີດຮັບ</button>
+            <h4>ຕຳແໜ່ງຂອງສາຂານີ້</h4>
+            <div class="field-block-actions">
+              <button type="button" class="btn btn--ghost btn--sm" id="add-branch-all-positions-btn">+ ເພີ່ມທຸກຕຳແໜ່ງໃນຄັງ</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="add-branch-opening-btn">+ ເພີ່ມຕຳແໜ່ງ</button>
+            </div>
           </div>
+          <p class="settings-sub">ໃສ່ <b>0</b> ຖ້າສາຂາມີຕຳແໜ່ງນີ້ ແຕ່ຍັງບໍ່ເປີດຮັບ (ໄວ້ໃຫ້ຝາກປະຫວັດ) — ໃສ່ຕົວເລກ 1 ຂຶ້ນໄປ ຖ້າຕ້ອງການຮັບສະໝັກແທ້</p>
+          <p class="form-status" id="branch-openings-summary" role="status"></p>
           <div id="branch-positions-container"><!-- dynamic rows rendered by admin.js --></div>
         </div>
 

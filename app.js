@@ -32,9 +32,10 @@ const FIREBASE_NOT_CONFIGURED = firebaseConfig.apiKey === "YOUR_API_KEY";
    ========================================================================== */
 let DEPARTMENTS = [];
 
-/* ຕຳແໜ່ງທີ່ "ເປີດຮັບ" — position ທີ່ບໍ່ມີຟິວ open ຖືວ່າເປີດຮັບ (ຮອງຮັບຂໍ້ມູນເກົ່າ) */
-const isOpen = p => p.open !== false;
-const openPositions = d => (d.positions || []).filter(isOpen);
+/* ຕຳແໜ່ງທີ່ "ໃຊ້ງານຢູ່" ໃນຄັງຕຳແໜ່ງຂອງອົງກອນ (ບໍ່ມີຟິວ active ຖືວ່າໃຊ້ງານ)
+   ໝາຍເຫດ: ພະແນກເປັນພຽງ "ຄັງຕຳແໜ່ງ" — ການເປີດຮັບຈິງຂຶ້ນກັບແຕ່ລະສາຂາ */
+const isActive = p => p.active !== false;
+const activePositions = d => (d.positions || []).filter(isActive);
 
 async function loadDepartments(){
   if(FIREBASE_NOT_CONFIGURED){
@@ -85,24 +86,40 @@ function currentBranch(){
 /* ==========================================================================
    ລໍຈິກກວດສອບການເປີດຮັບສະໝັກ (ອ້າງອີງຈາກ branch.openings)
    ========================================================================== */
-function isPositionOpenInBranch(branch, p){
-  if(p.open === false) return false; // ຖ້າປິດຖາວອນຈາກພະແນກ ໃຫ້ປິດທຸກສາຂາ
+/* ສາຂານີ້ "ມີ" ຕຳແໜ່ງນີ້ບໍ່ (ຢູ່ໃນ openings) — ມີ = ສະແດງໃຫ້ເຫັນ ແລະ ຝາກປະຫວັດໄດ້ */
+function hasPositionInBranch(branch, p){
+  if(!isActive(p)) return false;
   if(!branch) return true;
   if(branch.allPositions) return true;
-  
-  // ກວດສອບວ່າ posId ຂອງຕຳແໜ່ງນີ້ ມີຢູ່ໃນ openings ຂອງສາຂາທີ່ເລືອກຫຼືບໍ່
   return (branch.openings || []).some(op => op.posId === p.id);
 }
 
-// ຟັງຊັນໃໝ່: ສຳລັບດຶງຈຳນວນຄົນທີ່ຮັບໃນສາຂານັ້ນ
+/* ຈຳນວນອັດຕາທີ່ສາຂານີ້ຮັບ (0 = ມີຕຳແໜ່ງ ແຕ່ຍັງບໍ່ເປີດຮັບ) */
 function getPositionHeadcount(branch, p){
-  if(!branch || branch.allPositions) return 0;
+  if(!branch) return 0;
   const opening = (branch.openings || []).find(op => op.posId === p.id);
-  return opening ? opening.count : 0;
+  return opening ? Math.max(0, Number(opening.count) || 0) : 0;
 }
 
+/* "ເປີດຮັບແທ້" = ມີໃນສາຂາ ແລະ ຈຳນວນອັດຕາ > 0 */
+function isPositionOpenInBranch(branch, p){
+  return hasPositionInBranch(branch, p) && getPositionHeadcount(branch, p) > 0;
+}
+
+/* ຕຳແໜ່ງທັງໝົດທີ່ສາຂານີ້ມີ (ລວມທີ່ຍັງບໍ່ເປີດຮັບ) */
+function branchListedPositions(d, branch = currentBranch()){
+  return (d.positions || []).filter(p => hasPositionInBranch(branch, p));
+}
+
+/* ສະເພາະຕຳແໜ່ງທີ່ເປີດຮັບຢູ່ໃນສາຂານີ້ */
 function branchOpenPositions(d, branch = currentBranch()){
   return (d.positions || []).filter(p => isPositionOpenInBranch(branch, p));
+}
+
+/* ລວມຈຳນວນອັດຕາທັງໝົດຂອງສາຂານີ້ */
+function branchTotalSeats(branch = currentBranch()){
+  return DEPARTMENTS.reduce((sum, d) => sum + (d.positions || []).reduce(
+    (s, p) => s + (hasPositionInBranch(branch, p) ? getPositionHeadcount(branch, p) : 0), 0), 0);
 }
 
 /* ==========================================================================
@@ -147,21 +164,23 @@ const I18N = {
     heroTitle: 'ເລືອກຕຳແໜ່ງທ່ານໂດດເດັ່ນ <span class="grad">ຄົ້ນຫາບົດບາດ</span> ທີ່ເປັນຂອງທ່ານ',
     heroSub: "ສຳຫຼວດແຕ່ລະຝ່າຍໃນສະຖາບັນການເງິນຈຸລະພາກຂອງພວກເຮົາ ເບິ່ງພາລະໜ້າທີ່ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ ແລ້ວຍື່ນໃບສະໝັກໄດ້ທັນທີຈາກໜ້ານີ້",
     statDepts: "ຝ່າຍທັງໝົດ",
-    statOpen: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
+    statOpen: "ອັດຕາທີ່ເປີດຮັບ",
     branchTitle: "ເລືອກສາຂາ",
-    branchSub: n => `ທັງໝົດ ${n} ສາຂາ — ກົດເລືອກສາຂາເພື່ອເບິ່ງຕຳແໜ່ງທີ່ເປີດຮັບຢູ່ໃນສາຂານັ້ນ`,
+    branchSub: n => `ທັງໝົດ ${n} ສາຂາ — ກົດເລືອກສາຂາເພື່ອເບິ່ງຕຳແໜ່ງຂອງສາຂານັ້ນ`,
     branchLabel: "ສາຂາ",
     dirTitle: "ຝ່າຍໃນອົງກອນ",
     dirSub: "ຄລິກທີ່ກາດເພື່ອເບິ່ງລາຍລະອຽດ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ",
     nDuties: n => `${n} ພາລະບົດບາດຫຼັກ`,
     openN: n => `ເປີດຮັບ ${n} ຕຳແໜ່ງ`,
     openZero: "ຝາກປະຫວັດໄວ້",
+    seatsN: n => `ຮັບ ${n} ອັດຕາ`,
+    listedN: n => `ມີ ${n} ຕຳແໜ່ງໃນສາຂານີ້`,
     back: "← ກັບໄປໜ້າຝ່າຍທັງໝົດ",
     openPositions: "ຕຳແໜ່ງເປີດຮັບ",
     respTitle: "ໜ້າທີ່ຫຼັກຂອງຕຳແໜ່ງນີ້",
     respTitles: "ໜ້າທີ່ຫຼັກຂອງຝ່າຍນີ້",
-    posTitle: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
-    posEmpty: "ປັດຈຸບັນຝ່າຍນີ້ຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບ ຫາກສົນໃຈຮ່ວມງານໃນອະນາຄົດ ສາມາດຝາກປະຫວັດໄວ້ລ່ວງໜ້າໄດ້",
+    posTitle: "ຕຳແໜ່ງໃນສາຂານີ້",
+    posEmpty: "ສາຂານີ້ຍັງບໍ່ມີຕຳແໜ່ງຂອງຝ່າຍນີ້ ຫາກສົນໃຈຮ່ວມງານໃນອະນາຄົດ ສາມາດຝາກປະຫວັດໄວ້ລ່ວງໜ້າໄດ້",
     applyGeneral: "ຝາກປະຫວັດໄວ້ກັບຝ່າຍນີ້",
     generalTitle: "ຝາກປະຫວັດທົ່ວໄປ",
     applyBtn: "ສະໝັກຕຳແໜ່ງນີ້",
@@ -195,7 +214,7 @@ const I18N = {
     heroTitle: 'Choose the right team, <span class="grad">find the role</span> that fits you',
     heroSub: "Explore every department in our microfinance institution, review responsibilities and open positions, then apply directly from this page.",
     statDepts: "Departments",
-    statOpen: "Open positions",
+    statOpen: "Open headcount",
     branchTitle: "Choose a branch",
     branchSub: n => `${n} branches in total — pick one to see the positions open there`,
     branchLabel: "Branch",
@@ -204,10 +223,12 @@ const I18N = {
     nDuties: n => `${n} key duties`,
     openN: n => `${n} open position${n > 1 ? "s" : ""}`,
     openZero: "No openings yet",
+    seatsN: n => `${n} opening${n > 1 ? "s" : ""}`,
+    listedN: n => `${n} position${n > 1 ? "s" : ""} at this branch`,
     back: "← Back to all departments",
     openPositions: "Open positions",
     respTitle: "Department responsibilities",
-    posTitle: "Open positions",
+    posTitle: "Positions at this branch",
     posEmpty: "This department has no openings right now. If you'd like to work with us in the future, you can submit your profile in advance.",
     applyGeneral: "Leave your profile with this department",
     generalTitle: "General application",
@@ -358,10 +379,10 @@ function bindBranchTabs(){
 /* ---------------- Directory view ---------------- */
 function renderDirectory(){
   const branch = currentBranch();
-  const totalOpen = totalOpenPositions(branch);
+  const totalOpen = branchTotalSeats(branch);
 
   // ดึงทุกแผนกที่มีตำแหน่งอย่างน้อย 1 ตำแหน่งมาแสดงเสมอ
-  const activeDepts = DEPARTMENTS.filter(d => (d.positions || []).length > 0);
+  const activeDepts = DEPARTMENTS.filter(d => branchListedPositions(d, branch).length > 0);
 
   app.innerHTML = `
     <section class="relative overflow-hidden py-14 sm:py-20 lg:py-28">
@@ -414,6 +435,7 @@ function renderDirectory(){
 
 function deptCard(d){
   const openN = branchOpenPositions(d).length;
+  const listedN = branchListedPositions(d).length;
   return `
     <a class="group relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-md transition-all duration-300 ease-in-out hover:-translate-y-2 hover:scale-[1.02] hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-500/20 sm:p-7" href="#/dept/${d.id}">
       <span class="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 transition-transform duration-300 group-hover:scale-x-100"></span>
@@ -422,7 +444,7 @@ function deptCard(d){
       <p class="line-clamp-3 text-sm text-slate-500">${escapeHtml(tr(d, "mission"))}</p>
       <div class="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
         <span class="text-slate-400">${t("nDuties")(trList(d, "responsibilities").length)}</span>
-        <span class="font-bold ${openN === 0 ? "text-slate-400" : "text-emerald-600"}">${openN > 0 ? t("openN")(openN) : t("openZero")}</span>
+        <span class="font-bold ${openN === 0 ? "text-slate-400" : "text-emerald-600"}">${openN > 0 ? t("openN")(openN) : t("listedN")(listedN)}</span>
       </div>
     </a>
   `;
@@ -431,11 +453,12 @@ function deptCard(d){
 /* ---------------- Department detail view ---------------- */
 function deptSidebarItem(d, active){
   const openN = branchOpenPositions(d).length;
+  const listedN = branchListedPositions(d).length;
   return `
     <a class="grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1 rounded-xl px-3 py-2.5 transition-all duration-200 ${active ? "bg-gradient-to-r from-indigo-50 to-purple-50 ring-1 ring-indigo-200" : "hover:bg-slate-50"}" href="#/dept/${d.id}">
       <span class="inline-flex w-fit items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-mono text-[0.6rem] font-bold tracking-widest text-indigo-600">${escapeHtml(d.code || "")}</span>
       <span class="truncate text-sm font-semibold ${active ? "text-indigo-700" : "text-slate-700"}">${escapeHtml(tr(d, "name"))}</span>
-      <span class="col-start-2 text-[0.72rem] font-semibold ${openN === 0 ? "text-slate-400" : "text-emerald-600"}">${openN > 0 ? t("openN")(openN) : t("openZero")}</span>
+      <span class="col-start-2 text-[0.72rem] font-semibold ${openN === 0 ? "text-slate-400" : "text-emerald-600"}">${openN > 0 ? t("openN")(openN) : t("listedN")(listedN)}</span>
     </a>
   `;
 }
@@ -445,13 +468,15 @@ function renderDetail(deptId){
   if(!d){ renderDirectory(); return; }
   const branch = currentBranch();
   
-  const allPositions = d.positions || [];
-  // เปลี่ยนมาดึงทุกตำแหน่งมาแสดง (ไม่ต้อง filter ทิ้งแล้ว)
-  const positions = allPositions.map((p, i) => ({ p, i }));
+  /* ສະແດງສະເພາະຕຳແໜ່ງທີ່ສາຂານີ້ມີ — ຮັກສາ index ເດີມຂອງ d.positions ໄວ້
+     ເພາະປຸ່ມສະໝັກອ້າງອີງດ້ວຍ data-apply="${i}" */
+  const positions = (d.positions || [])
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => hasPositionInBranch(branch, p));
   const resp = trList(d, "responsibilities");
   
   // เมนูด้านซ้ายก็แสดงทุกแผนกที่มีตำแหน่งเช่นกัน
-  const activeDeptsSidebar = DEPARTMENTS.filter(dept => (dept.positions || []).length > 0);
+  const activeDeptsSidebar = DEPARTMENTS.filter(dept => branchListedPositions(dept, branch).length > 0);
 
   app.innerHTML = `
     ${branchTabsHtml()}
@@ -548,11 +573,9 @@ function positionCard(d, p, i){
           <div class="mt-2 flex flex-wrap gap-2">
             <span class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(tr(p, "type") || p.type || "")}</span>
             
-            <!-- ສະແດງປ້າຍຈຳນວນຄົນ (ຖ້າເປີດຮັບ ແລະ ບໍ່ແມ່ນສຳນັກງານໃຫຍ່ທີ່ຮັບທັງໝົດ) -->
-            ${opened && headcount > 0 ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">ຮັບ ${headcount} ຕຳແໜ່ງ</span>` : ""}
-            
-            <!-- ປ້າຍຍັງບໍ່ເປີດຮັບ -->
-            ${!opened ? `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>` : ""}
+            ${headcount > 0
+              ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">${t("seatsN")(headcount)}</span>`
+              : `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>`}
           </div>
         </div>
         <button class="w-full ${opened
@@ -631,7 +654,7 @@ function renderCustomFields(){
 let applyingToOpenPosition = true;
 
 function openApplyModal(dept, position){
-  applyingToOpenPosition = isOpen(position);
+  applyingToOpenPosition = !!position.id && isPositionOpenInBranch(currentBranch(), position);
   const branch = currentBranch();
   const branchName = branch ? tr(branch, "name") : "";
   document.getElementById("apply-dept-label").textContent = branchName
