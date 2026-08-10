@@ -82,15 +82,27 @@ function currentBranch(){
   return BRANCHES.find(b => b.id === currentBranchId) || BRANCHES[0];
 }
 
+/* ==========================================================================
+   ລໍຈິກກວດສອບການເປີດຮັບສະໝັກ (ອ້າງອີງຈາກ branch.openings)
+   ========================================================================== */
 function isPositionOpenInBranch(branch, p){
+  if(p.open === false) return false; // ຖ້າປິດຖາວອນຈາກພະແນກ ໃຫ້ປິດທຸກສາຂາ
   if(!branch) return true;
   if(branch.allPositions) return true;
-  return (branch.positionIds || []).includes(p.id);
+  
+  // ກວດສອບວ່າ posId ຂອງຕຳແໜ່ງນີ້ ມີຢູ່ໃນ openings ຂອງສາຂາທີ່ເລືອກຫຼືບໍ່
+  return (branch.openings || []).some(op => op.posId === p.id);
 }
 
-/* ตำแหน่งที่ "เปิดรับ" และ "เปิดรับในสาขาที่กำลังเลือกอยู่" */
+// ຟັງຊັນໃໝ່: ສຳລັບດຶງຈຳນວນຄົນທີ່ຮັບໃນສາຂານັ້ນ
+function getPositionHeadcount(branch, p){
+  if(!branch || branch.allPositions) return 0;
+  const opening = (branch.openings || []).find(op => op.posId === p.id);
+  return opening ? opening.count : 0;
+}
+
 function branchOpenPositions(d, branch = currentBranch()){
-  return openPositions(d).filter(p => isPositionOpenInBranch(branch, p));
+  return (d.positions || []).filter(p => isPositionOpenInBranch(branch, p));
 }
 
 /* ==========================================================================
@@ -345,7 +357,11 @@ function bindBranchTabs(){
 
 /* ---------------- Directory view ---------------- */
 function renderDirectory(){
-  const totalOpen = totalOpenPositions();
+  const branch = currentBranch();
+  const totalOpen = totalOpenPositions(branch);
+
+  // ดึงทุกแผนกที่มีตำแหน่งอย่างน้อย 1 ตำแหน่งมาแสดงเสมอ
+  const activeDepts = DEPARTMENTS.filter(d => (d.positions || []).length > 0);
 
   app.innerHTML = `
     <section class="relative overflow-hidden py-14 sm:py-20 lg:py-28">
@@ -363,7 +379,8 @@ function renderDirectory(){
 
         <div class="mt-8 flex flex-wrap gap-3 sm:mt-10 sm:gap-4">
           <div class="flex-1 min-w-[140px] rounded-2xl border border-white/60 bg-white/70 px-5 py-4 shadow-xl shadow-indigo-500/10 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:flex-none sm:px-7 sm:py-5">
-            <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-2xl font-extrabold text-transparent sm:text-3xl">${DEPARTMENTS.length}</b>
+            <!-- อัปเดตตัวเลขแผนกให้แสดงเฉพาะที่มีตำแหน่งในสาขานี้ -->
+            <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-2xl font-extrabold text-transparent sm:text-3xl">${activeDepts.length}</b>
             <span class="text-sm font-medium text-slate-500">${t("statDepts")}</span>
           </div>
           <div class="flex-1 min-w-[140px] rounded-2xl border border-white/60 bg-white/70 px-5 py-4 shadow-xl shadow-indigo-500/10 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:flex-none sm:px-7 sm:py-5">
@@ -383,7 +400,11 @@ function renderDirectory(){
           <p class="mt-1 text-slate-500">${t("dirSub")}</p>
         </div>
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-          ${DEPARTMENTS.map(d => deptCard(d)).join("")}
+          <!-- แสดงเฉพาะการ์ดแผนกที่มีตำแหน่ง ถ้าไม่มีเลยให้แสดงข้อความแจ้งเตือน -->
+          ${activeDepts.length > 0 
+            ? activeDepts.map(d => deptCard(d)).join("")
+            : `<div class="col-span-full rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-semibold text-slate-400">ປັດຈຸບັນຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບໃນສາຂານີ້ <br>(ไม่มีตำแหน่งเปิดรับในสาขานี้)</div>`
+          }
         </div>
       </div>
     </section>
@@ -423,32 +444,31 @@ function renderDetail(deptId){
   const d = DEPARTMENTS.find(x => x.id === deptId);
   if(!d){ renderDirectory(); return; }
   const branch = currentBranch();
+  
   const allPositions = d.positions || [];
-  const positions = allPositions
-    .map((p, i) => ({ p, i }))
-    .filter(({ p }) => isPositionOpenInBranch(branch, p));
+  // เปลี่ยนมาดึงทุกตำแหน่งมาแสดง (ไม่ต้อง filter ทิ้งแล้ว)
+  const positions = allPositions.map((p, i) => ({ p, i }));
   const resp = trList(d, "responsibilities");
+  
+  // เมนูด้านซ้ายก็แสดงทุกแผนกที่มีตำแหน่งเช่นกัน
+  const activeDeptsSidebar = DEPARTMENTS.filter(dept => (dept.positions || []).length > 0);
 
   app.innerHTML = `
     ${branchTabsHtml()}
     <section class="py-8 sm:py-14">
       <div class="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 sm:gap-8 sm:px-6 lg:grid-cols-[272px_1fr]">
+        
+        <!-- เมนูด้านซ้าย (Sidebar): ดึงรายการแผนกที่ผ่านการกรองมาแสดง -->
         <aside class="order-2 lg:order-1 lg:sticky lg:top-24 lg:self-start">
-          <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-  <details class="group marker:content-none">
-    <summary class="flex cursor-pointer items-center justify-between font-display text-base font-bold text-slate-900 transition-colors duration-200 hover:text-indigo-600">
-      ${t("respTitles")}
-      <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-      </span>
-    </summary>
-    <ul class="mt-4 space-y-3 border-t border-slate-100 pt-4">
-      ${resp.map(r => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(r)}</li>`).join("")}
-    </ul>
-  </details>
-</div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <h2 class="mb-3 px-1 font-display text-xs font-bold uppercase tracking-widest text-slate-400">${t("dirTitle")}</h2>
+            <nav class="flex max-h-56 flex-col gap-1 overflow-y-auto lg:max-h-none lg:overflow-visible">
+              ${activeDeptsSidebar.map(dept => deptSidebarItem(dept, dept.id === deptId)).join("")}
+            </nav>
+          </div>
         </aside>
 
+        <!-- เนื้อหาหลักด้านขวา -->
         <div class="order-1 min-w-0 lg:order-2">
           <a href="#/" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors duration-200 hover:text-indigo-600">${t("back")}</a>
           <div class="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
@@ -458,14 +478,14 @@ function renderDetail(deptId){
               <p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(tr(d, "mission"))}</p>
             </div>
             <div class="flex shrink-0 items-center gap-4 rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-purple-50 px-6 py-4 text-center shadow-md sm:flex-col sm:gap-0">
-              <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-3xl font-extrabold text-transparent">${positions.filter(({ p }) => isOpen(p)).length}</b>
+              <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-3xl font-extrabold text-transparent">${positions.filter(({ p }) => isPositionOpenInBranch(branch, p)).length}</b>
               <span class="text-xs font-semibold text-slate-500">${t("openPositions")}</span>
             </div>
           </div>
 
           <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             
-            <!-- กล่องซ้าย: ภาระหน้าที่ของแผนก (ทำเป็นลิ้นชัก) -->
+            <!-- กล่องซ้าย (ในเนื้อหาหลัก): ภาระหน้าที่ของแผนก (ทำเป็นลิ้นชัก) -->
             <div class="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <details class="group marker:content-none">
                 <summary class="flex cursor-pointer items-center justify-between font-display text-base font-bold text-slate-900 transition-colors duration-200 hover:text-indigo-600">
@@ -490,6 +510,7 @@ function renderDetail(deptId){
                 }
               </div>
               <div class="mt-4">
+                <!-- ปุ่ม Apply ที่คุณแก้ไว้สวยงามแล้ว -->
                 <button class="inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 sm:w-auto" data-apply-general="${d.id}">${t("applyGeneral")}</button>
               </div>
             </div>
@@ -515,7 +536,10 @@ function renderDetail(deptId){
 
 function positionCard(d, p, i){
   const duties = trList(p, "duties");
-  const opened = isOpen(p);
+  const branch = currentBranch();
+  const opened = isPositionOpenInBranch(branch, p);
+  const headcount = getPositionHeadcount(branch, p);
+
   return `
     <div class="group/card rounded-2xl border ${opened ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"} p-4 shadow-sm transition-all duration-300 sm:p-5 ${opened ? "hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/10" : ""}">
       <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
@@ -523,7 +547,12 @@ function positionCard(d, p, i){
           <h5 class="font-display text-base font-bold text-slate-900">${escapeHtml(tr(p, "title"))}</h5>
           <div class="mt-2 flex flex-wrap gap-2">
             <span class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(tr(p, "type") || p.type || "")}</span>
-            ${opened ? "" : `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>`}
+            
+            <!-- ສະແດງປ້າຍຈຳນວນຄົນ (ຖ້າເປີດຮັບ ແລະ ບໍ່ແມ່ນສຳນັກງານໃຫຍ່ທີ່ຮັບທັງໝົດ) -->
+            ${opened && headcount > 0 ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">ຮັບ ${headcount} ຕຳແໜ່ງ</span>` : ""}
+            
+            <!-- ປ້າຍຍັງບໍ່ເປີດຮັບ -->
+            ${!opened ? `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>` : ""}
           </div>
         </div>
         <button class="w-full ${opened
@@ -542,7 +571,7 @@ function positionCard(d, p, i){
               <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
             </span>
           </summary>
-          <ul class="mt-4 space-y-2">
+          <ul class="details-content mt-4 space-y-2">
             ${duties.map(du => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(du)}</li>`).join("")}
           </ul>
         </details>

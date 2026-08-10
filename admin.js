@@ -460,36 +460,59 @@ async function deleteBranch(docId){
 }
 
 /* ---------- ตัวเลือกตำแหน่ง (checklist แยกตามพะแนก) ---------- */
-function branchPositionsPickerHtml(selectedIds){
-  const selected = new Set(selectedIds || []);
-  return departments.map(d => {
-    const positions = d.positions || [];
-    if(!positions.length) return "";
-    return `
-      <div class="branch-position-group">
-        <h5>${escapeHtml(d.name || d.code || "")}</h5>
-        <div class="branch-position-list">
-          ${positions.map(p => `
-            <label class="check-inline">
-              <input type="checkbox" class="branch-pos-check" value="${escapeHtml(p.id)}" ${selected.has(p.id) ? "checked" : ""}>
-              <span>${escapeHtml(p.title)}${p.open === false ? " (ຍັງບໍ່ເປີດຮັບ)" : ""}</span>
-            </label>
-          `).join("")}
-        </div>
-      </div>
-    `;
-  }).join("") || `<p class="admin-empty-sub">ຍັງບໍ່ມີຕຳແໜ່ງໃນລະບົບ — ໄປເພີ່ມຕຳແໜ່ງຈາກແທັບ "ຈັດການພະແນກ" ກ່ອນ</p>`;
+/* ---------- ตัวเลือกตำแหน่ง (แบบระบุจำนวนรับสมัคร) ---------- */
+
+// ฟังก์ชันสร้างตัวเลือก <option> โดยจัดกลุ่มตามแผนก
+function getPositionOptionsHtml(selectedPosId = "") {
+  let html = '<option value="">-- ເລືອກຕຳແໜ່ງ --</option>';
+  departments.forEach(d => {
+    if (!d.positions || !d.positions.length) return;
+    html += `<optgroup label="${escapeHtml(d.name || d.code)}">`;
+    d.positions.forEach(p => {
+      const sel = (p.id === selectedPosId) ? "selected" : "";
+      html += `<option value="${escapeHtml(p.id)}" ${sel}>${escapeHtml(p.title)}</option>`;
+    });
+    html += `</optgroup>`;
+  });
+  return html;
+}
+
+// ฟังก์ชันสร้างแถวสำหรับ 1 การเปิดรับ (เลือกตำแหน่ง + จำนวน)
+function branchOpeningRowHtml(op = {}) {
+  return `
+    <div class="branch-opening-block field-grid" style="align-items: end; margin-bottom: 1rem; border-bottom: 1px dashed #e2e8f0; padding-bottom: 1rem;">
+      <label class="field" style="flex: 2; margin-bottom: 0;">
+        <span>ເລືອກຕຳແໜ່ງ <em>*</em></span>
+        <select class="bo-pos-id" required>
+          ${getPositionOptionsHtml(op.posId)}
+        </select>
+      </label>
+      <label class="field" style="flex: 1; margin-bottom: 0;">
+        <span>ຈຳນວນທີ່ຮັບ (ຄົນ) <em>*</em></span>
+        <input type="number" class="bo-count" value="${op.count || 1}" min="1" required>
+      </label>
+      <button type="button" class="btn btn--danger" data-remove-opening style="margin-bottom: 4px;">ລຶບ</button>
+    </div>
+  `;
 }
 
 const branchOverlay = $("branch-overlay");
 const branchAllPositionsCheck = $("branch-all-positions");
 const branchPositionsWrap = $("branch-positions-wrap");
+const branchPositionsContainer = $("branch-positions-container");
 
 function updateBranchPositionsWrapState(){
   branchPositionsWrap.classList.toggle("is-disabled", branchAllPositionsCheck.checked);
-  branchPositionsWrap.querySelectorAll("input").forEach(el => { el.disabled = branchAllPositionsCheck.checked; });
+  branchPositionsWrap.querySelectorAll("input, select, button").forEach(el => { el.disabled = branchAllPositionsCheck.checked; });
 }
 branchAllPositionsCheck.addEventListener("change", updateBranchPositionsWrapState);
+
+// ปุ่มสำหรับกดเพิ่มแถว
+$("add-branch-opening-btn").addEventListener("click", () => {
+  branchPositionsContainer.insertAdjacentHTML("beforeend", branchOpeningRowHtml({}));
+  const newBlock = branchPositionsContainer.lastElementChild;
+  newBlock.querySelector("[data-remove-opening]").addEventListener("click", () => newBlock.remove());
+});
 
 function openBranchModal(docId = null){
   const b = docId ? branches.find(x => x.docId === docId) : null;
@@ -499,7 +522,18 @@ function openBranchModal(docId = null){
   $("branch-name").value = b?.name || "";
   $("branch-order").value = b?.order ?? (branches.length + 1);
   branchAllPositionsCheck.checked = !!b?.allPositions;
-  $("branch-positions-container").innerHTML = branchPositionsPickerHtml(b?.positionIds);
+  
+  // Render ข้อมูลการเปิดรับเดิม (ถ้ามี)
+  branchPositionsContainer.innerHTML = "";
+  const openings = b?.openings || []; 
+  if (openings.length > 0) {
+    openings.forEach(op => {
+      branchPositionsContainer.insertAdjacentHTML("beforeend", branchOpeningRowHtml(op));
+      const block = branchPositionsContainer.lastElementChild;
+      block.querySelector("[data-remove-opening]").addEventListener("click", () => block.remove());
+    });
+  }
+
   updateBranchPositionsWrapState();
   setStatus($("branch-form-status"), "");
   branchOverlay.hidden = false;
@@ -516,6 +550,54 @@ $("add-branch-btn").addEventListener("click", () => openBranchModal(null));
 $("branch-close").addEventListener("click", closeBranchModal);
 branchOverlay.addEventListener("click", e => { if(e.target === branchOverlay) closeBranchModal(); });
 document.addEventListener("keydown", e => { if(e.key === "Escape" && !branchOverlay.hidden) closeBranchModal(); });
+
+// บันทึกข้อมูลสาขา
+$("branch-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const docId = $("branch-doc-id").value;
+  const code = $("branch-code").value.trim();
+  const name = $("branch-name").value.trim();
+  if(!code || !name){
+    setStatus($("branch-form-status"), "ກະລຸນາປ້ອນລະຫັດສາຂາ ແລະ ຊື່ສາຂາ", "err");
+    return;
+  }
+
+  const allPositions = branchAllPositionsCheck.checked;
+  
+  // ดึงข้อมูลจากแถวที่เพิ่มไว้ เปลี่ยนจาก array ของ ID เป็น array ของ Object {posId, count}
+  const openings = allPositions ? [] : [...branchPositionsContainer.querySelectorAll(".branch-opening-block")].map(block => {
+    return {
+      posId: block.querySelector(".bo-pos-id").value,
+      count: Number(block.querySelector(".bo-count").value) || 1
+    };
+  }).filter(op => op.posId); // เอาเฉพาะอันที่เลือกตำแหน่งแล้ว
+
+  const data = {
+    code: code.toUpperCase(),
+    name,
+    order: Number($("branch-order").value) || branches.length + 1,
+    allPositions,
+    openings // บันทึกตัวแปร openings แบบใหม่เข้าไป
+  };
+
+  $("branch-save").disabled = true;
+  setStatus($("branch-form-status"), "ກຳລັງບັນທຶກ...");
+  try {
+    if(docId){
+      await setDoc(doc(db, BRANCHES_COLLECTION, docId), data);
+    } else {
+      await addDoc(collection(db, BRANCHES_COLLECTION), data);
+    }
+    setStatus($("branch-form-status"), "ບັນທຶກຮຽບຮ້ອຍ", "ok");
+    await loadBranches();
+    setTimeout(closeBranchModal, 700);
+  } catch (err){
+    console.error(err);
+    setStatus($("branch-form-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
+  } finally {
+    $("branch-save").disabled = false;
+  }
+});
 
 $("branch-form").addEventListener("submit", async e => {
   e.preventDefault();
