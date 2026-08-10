@@ -143,10 +143,11 @@ const I18N = {
     dirSub: "ຄລິກທີ່ກາດເພື່ອເບິ່ງລາຍລະອຽດ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ",
     nDuties: n => `${n} ພາລະບົດບາດຫຼັກ`,
     openN: n => `ເປີດຮັບ ${n} ຕຳແໜ່ງ`,
-    openZero: "ຍັງບໍ່ເປີດຮັບ",
+    openZero: "ຝາກປະຫວັດໄວ້",
     back: "← ກັບໄປໜ້າຝ່າຍທັງໝົດ",
     openPositions: "ຕຳແໜ່ງເປີດຮັບ",
-    respTitle: "ພາລະໜ້າທີ່ຫຼັກຂອງຝ່າຍ",
+    respTitle: "ໜ້າທີ່ຫຼັກຂອງຕຳແໜ່ງນີ້",
+    respTitles: "ໜ້າທີ່ຫຼັກຂອງຝ່າຍນີ້",
     posTitle: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
     posEmpty: "ປັດຈຸບັນຝ່າຍນີ້ຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບ ຫາກສົນໃຈຮ່ວມງານໃນອະນາຄົດ ສາມາດຝາກປະຫວັດໄວ້ລ່ວງໜ້າໄດ້",
     applyGeneral: "ຝາກປະຫວັດໄວ້ກັບຝ່າຍນີ້",
@@ -277,6 +278,7 @@ function escapeHtml(str){
 }
 
 /* ---------------- Branch tabs (shared between directory & detail views) ---------------- */
+/* ---------------- Branch tabs (shared between directory & detail views) ---------------- */
 function branchTabsHtml(){
   if(!BRANCHES.length) return "";
   const activeId = currentBranch()?.id;
@@ -287,7 +289,28 @@ function branchTabsHtml(){
           <h2 class="font-display text-lg font-bold text-slate-900 sm:text-xl">${t("branchTitle")}</h2>
           <p class="mt-1 text-sm text-slate-500">${t("branchSub")(BRANCHES.length)}</p>
         </div>
-        <div class="flex flex-wrap gap-2 sm:gap-2.5">
+        
+        <!-- รูปแบบ Dropdown สำหรับมือถือ (แสดงเฉพาะจอมือถือ) -->
+        <div class="block sm:hidden relative mt-2">
+          <!-- เปลี่ยนสีกรอบเป็นสีน้ำเงินอ่อน (border-indigo-300) และเพิ่มเงา/พื้นหลังให้ดูมีมิติ -->
+          <select data-branch-select class="w-full appearance-none rounded-xl border-2 border-indigo-200 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 px-4 py-3.5 pr-12 text-sm font-bold text-indigo-900 shadow-sm transition-all focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20">
+            ${BRANCHES.map(b => `
+              <option value="${escapeHtml(b.id)}" ${b.id === activeId ? "selected" : ""}>
+                ${escapeHtml(tr(b, "name"))}
+              </option>
+            `).join("")}
+          </select>
+          
+          <!-- ไอคอนลูกศรชี้ลง (Pointer) เพื่อให้รู้ว่ากดเลือก (Dropdown) ได้แน่ๆ -->
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-indigo-500">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </div>
+        </div>
+
+        <!-- รูปแบบปุ่ม Tabs สำหรับ Desktop (ซ่อนบนมือถือ) -->
+        <div class="hidden sm:flex flex-wrap gap-2.5">
           ${BRANCHES.map(b => `
             <button type="button" data-branch-tab="${escapeHtml(b.id)}" class="rounded-full border px-4 py-2 text-sm font-bold transition-all duration-200 ${b.id === activeId
               ? "border-indigo-500 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30"
@@ -301,15 +324,22 @@ function branchTabsHtml(){
 }
 
 function bindBranchTabs(){
+  // ฟังก์ชันส่วนกลางสำหรับอัปเดตสาขาเมื่อมีการเปลี่ยน
+  const updateBranch = (id) => {
+    if(id === currentBranchId) return;
+    currentBranchId = id;
+    localStorage.setItem("ssmi-branch", currentBranchId);
+    route({ keepScroll: true });
+  };
+
+  // ดักจับ Event สำหรับปุ่ม Tabs
   app.querySelectorAll("[data-branch-tab]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.branchTab;
-      if(id === currentBranchId) return;
-      currentBranchId = id;
-      localStorage.setItem("ssmi-branch", currentBranchId);
-      /* ບໍ່ຢາກໃຫ້ໜ້າກະໂດດຂຶ້ນເທິງສຸດ ເມື່ອສະຫຼັບສາຂາ — ຄົງຕຳແໜ່ງເລື່ອນເດີມໄວ້ */
-      route({ keepScroll: true });
-    });
+    btn.addEventListener("click", () => updateBranch(btn.dataset.branchTab));
+  });
+
+  // ดักจับ Event สำหรับ Dropdown มือถือ
+  app.querySelectorAll("[data-branch-select]").forEach(select => {
+    select.addEventListener("change", (e) => updateBranch(e.target.value));
   });
 }
 
@@ -404,12 +434,19 @@ function renderDetail(deptId){
     <section class="py-8 sm:py-14">
       <div class="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 sm:gap-8 sm:px-6 lg:grid-cols-[272px_1fr]">
         <aside class="order-2 lg:order-1 lg:sticky lg:top-24 lg:self-start">
-          <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <h2 class="mb-3 px-1 font-display text-xs font-bold uppercase tracking-widest text-slate-400">${t("dirTitle")}</h2>
-            <nav class="flex max-h-56 flex-col gap-1 overflow-y-auto lg:max-h-none lg:overflow-visible">
-              ${DEPARTMENTS.map(dept => deptSidebarItem(dept, dept.id === deptId)).join("")}
-            </nav>
-          </div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+  <details class="group marker:content-none">
+    <summary class="flex cursor-pointer items-center justify-between font-display text-base font-bold text-slate-900 transition-colors duration-200 hover:text-indigo-600">
+      ${t("respTitles")}
+      <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </span>
+    </summary>
+    <ul class="mt-4 space-y-3 border-t border-slate-100 pt-4">
+      ${resp.map(r => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(r)}</li>`).join("")}
+    </ul>
+  </details>
+</div>
         </aside>
 
         <div class="order-1 min-w-0 lg:order-2">
@@ -427,13 +464,23 @@ function renderDetail(deptId){
           </div>
 
           <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <h4 class="mb-4 font-display text-base font-bold text-slate-900">${t("respTitle")}</h4>
-              <ul class="space-y-3">
-                ${resp.map(r => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(r)}</li>`).join("")}
-              </ul>
+            
+            <!-- กล่องซ้าย: ภาระหน้าที่ของแผนก (ทำเป็นลิ้นชัก) -->
+            <div class="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <details class="group marker:content-none">
+                <summary class="flex cursor-pointer items-center justify-between font-display text-base font-bold text-slate-900 transition-colors duration-200 hover:text-indigo-600">
+                  ${t("respTitle")}
+                  <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  </span>
+                </summary>
+                <ul class="details-content mt-4 space-y-3 border-t border-slate-100 pt-4">
+                  ${resp.map(r => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(r)}</li>`).join("")}
+                </ul>
+              </details>
             </div>
 
+            <!-- กล่องขวา: ตำแหน่งที่เปิดรับ -->
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <h4 class="mb-4 font-display text-base font-bold text-slate-900">${t("posTitle")}</h4>
               <div class="flex flex-col gap-4">
@@ -443,9 +490,10 @@ function renderDetail(deptId){
                 }
               </div>
               <div class="mt-4">
-                <button class="inline-flex w-full items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-md sm:w-auto" data-apply-general="${d.id}">${t("applyGeneral")}</button>
+                <button class="inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 sm:w-auto" data-apply-general="${d.id}">${t("applyGeneral")}</button>
               </div>
             </div>
+
           </div>
         </div>
       </div>
@@ -469,7 +517,7 @@ function positionCard(d, p, i){
   const duties = trList(p, "duties");
   const opened = isOpen(p);
   return `
-    <div class="group rounded-2xl border ${opened ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"} p-4 shadow-sm transition-all duration-300 sm:p-5 ${opened ? "hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/10" : ""}">
+    <div class="group/card rounded-2xl border ${opened ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"} p-4 shadow-sm transition-all duration-300 sm:p-5 ${opened ? "hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/10" : ""}">
       <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div>
           <h5 class="font-display text-base font-bold text-slate-900">${escapeHtml(tr(p, "title"))}</h5>
@@ -487,9 +535,14 @@ function positionCard(d, p, i){
       </div>
       <p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(tr(p, "description"))}</p>
       ${duties.length ? `
-        <details class="mt-3">
-          <summary class="cursor-pointer text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-purple-600">${t("dutiesN")(duties.length)}</summary>
-          <ul class="mt-3 space-y-2">
+        <details class="group mt-4 border-t border-slate-100 pt-3 marker:content-none">
+          <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-purple-600">
+            ${t("dutiesN")(duties.length)}
+            <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </span>
+          </summary>
+          <ul class="mt-4 space-y-2">
             ${duties.map(du => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(du)}</li>`).join("")}
           </ul>
         </details>
