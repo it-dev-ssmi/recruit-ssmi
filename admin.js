@@ -394,15 +394,21 @@ async function loadBranches(){
 
 /* ຂໍ້ມູນເກົ່າທີ່ເກັບເປັນ positionIds: ["pos1","pos2"] → ແປງເປັນ openings ອັດຕະໂນມັດ
    (ຄ່າເລີ່ມຕົ້ນ count = 0 ໝາຍເຖິງ "ມີຕຳແໜ່ງ ແຕ່ຍັງບໍ່ເປີດຮັບ") */
+/* ຂໍ້ມູນເກົ່າທີ່ເກັບເປັນ positionIds: ["pos1","pos2"] → ແປງເປັນ openings ອັດຕະໂນມັດ
+   (ຄ່າເລີ່ມຕົ້ນ count = 0 ໝາຍເຖິງ "ມີຕຳແໜ່ງ ແຕ່ຍັງບໍ່ເປີດຮັບ") */
 function migrateBranchShape(b){
   if(!Array.isArray(b.openings)){
     b.openings = Array.isArray(b.positionIds)
-      ? b.positionIds.map(id => ({ posId: id, count: 0 }))
+      ? b.positionIds.map(id => ({ posId: id, count: 0, deadline: "" }))
       : [];
   }
   b.openings = b.openings
     .filter(op => op && op.posId)
-    .map(op => ({ posId: op.posId, count: Math.max(0, Number(op.count) || 0) }));
+    .map(op => ({ 
+      posId: op.posId, 
+      count: Math.max(0, Number(op.count) || 0),
+      deadline: op.deadline || ""  // <-- เพิ่มบรรทัดนี้ เพื่อดึง deadline กลับมาโชว์!
+    }));
   return b;
 }
 
@@ -532,19 +538,23 @@ function getPositionOptionsHtml(selectedPosId = ""){
 function branchOpeningRowHtml(op = {}){
   const orphan = op.posId && !findPosition(op.posId);
   return `
-    <div class="branch-opening-block field-grid" style="align-items:end;margin-bottom:1rem;border-bottom:1px dashed #e2e8f0;padding-bottom:1rem;">
-      <label class="field" style="flex:2;margin-bottom:0;">
+    <div class="branch-opening-block field-grid" style="align-items:end;margin-bottom:1rem;border-bottom:1px dashed #e2e8f0;padding-bottom:1rem;display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;">
+      <label class="field" style="margin-bottom:0;">
         <span>ຕຳແໜ່ງ <em>*</em></span>
         <select class="bo-pos-id">
           ${getPositionOptionsHtml(op.posId)}
           ${orphan ? `<option value="${escapeHtml(op.posId)}" selected>(ຕຳແໜ່ງນີ້ຖືກລຶບອອກຈາກຄັງແລ້ວ)</option>` : ""}
         </select>
       </label>
-      <label class="field" style="flex:1;margin-bottom:0;">
-        <span>ຈຳນວນອັດຕາທີ່ຮັບ (0 = ຝາກປະຫວັດ)</span>
+      <label class="field" style="margin-bottom:0;">
+        <span>ຈຳນວນອັດຕາ</span>
         <input type="number" class="bo-count" value="${Math.max(0, Number(op.count) || 0)}" min="0" step="1">
       </label>
-      <button type="button" class="btn btn--danger" data-remove-opening style="margin-bottom:4px;">ລຶບ</button>
+      <label class="field" style="margin-bottom:0;">
+        <span>ວັນທີປິດຮັບ</span>
+        <input type="date" class="bo-deadline" value="${escapeHtml(op.deadline || "")}">
+      </label>
+      <button type="button" class="btn btn--danger" data-remove-opening style="margin-bottom:2px;">ລຶບ</button>
     </div>
   `;
 }
@@ -567,7 +577,8 @@ function currentOpeningsFromDom(){
   return [...branchPositionsContainer.querySelectorAll(".branch-opening-block")]
     .map(block => ({
       posId: block.querySelector(".bo-pos-id").value,
-      count: Math.max(0, Number(block.querySelector(".bo-count").value) || 0)
+      count: Math.max(0, Number(block.querySelector(".bo-count").value) || 0),
+      deadline: block.querySelector(".bo-deadline").value.trim() // <-- เพิ่มบรรทัดนี้
     }))
     .filter(op => {
       if(!op.posId || seen.has(op.posId)) return false;   // ຕັດຕຳແໜ່ງຊ້ຳ / ຍັງບໍ່ໄດ້ເລືອກ

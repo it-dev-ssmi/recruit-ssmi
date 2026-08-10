@@ -94,11 +94,40 @@ function hasPositionInBranch(branch, p){
   return (branch.openings || []).some(op => op.posId === p.id);
 }
 
+/* ດຶງວັນທີປິດຮັບສະໝັກ (ถ้าเลยกำหนดไปแล้ว ไม่ต้องส่งไปแสดงผล) */
+function getPositionDeadline(branch, p){
+  if(!branch) return "";
+  const opening = (branch.openings || []).find(op => op.posId === p.id);
+  if(!opening || !opening.deadline) return "";
+  
+  const today = new Date();
+  const todayStr = today.getFullYear() + "-" + 
+                   String(today.getMonth() + 1).padStart(2, '0') + "-" + 
+                   String(today.getDate()).padStart(2, '0');
+                   
+  // คืนค่าวันที่เฉพาะกรณีที่ "ยังไม่หมดเวลา" เท่านั้น
+  return opening.deadline >= todayStr ? opening.deadline : "";
+}
+
 /* ຈຳນວນອັດຕາທີ່ສາຂານີ້ຮັບ (0 = ມີຕຳແໜ່ງ ແຕ່ຍັງບໍ່ເປີດຮັບ) */
 function getPositionHeadcount(branch, p){
   if(!branch) return 0;
   const opening = (branch.openings || []).find(op => op.posId === p.id);
-  return opening ? Math.max(0, Number(opening.count) || 0) : 0;
+  if(!opening) return 0;
+  
+  // ⏳ ระบบปิดรับอัตโนมัติ: เทียบวันที่ปิดรับ กับ วันนี้
+  if (opening.deadline) {
+    const today = new Date();
+    const todayStr = today.getFullYear() + "-" + 
+                     String(today.getMonth() + 1).padStart(2, '0') + "-" + 
+                     String(today.getDate()).padStart(2, '0');
+                     
+    if (opening.deadline < todayStr) {
+      return 0; // ถ้าเลยกำหนดมาแล้ว ให้บังคับเปลี่ยนโควต้าเป็น 0 ทันที
+    }
+  }
+
+  return Math.max(0, Number(opening.count) || 0);
 }
 
 /* "ເປີດຮັບແທ້" = ມີໃນສາຂາ ແລະ ຈຳນວນອັດຕາ > 0 */
@@ -164,7 +193,7 @@ const I18N = {
     heroTitle: 'ເລືອກຕຳແໜ່ງທ່ານໂດດເດັ່ນ <span class="grad">ຄົ້ນຫາບົດບາດ</span> ທີ່ເປັນຂອງທ່ານ',
     heroSub: "ສຳຫຼວດແຕ່ລະຝ່າຍໃນສະຖາບັນການເງິນຈຸລະພາກຂອງພວກເຮົາ ເບິ່ງພາລະໜ້າທີ່ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ ແລ້ວຍື່ນໃບສະໝັກໄດ້ທັນທີຈາກໜ້ານີ້",
     statDepts: "ຝ່າຍທັງໝົດ",
-    statOpen: "ອັດຕາທີ່ເປີດຮັບ",
+    statOpen: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
     branchTitle: "ເລືອກສາຂາ",
     branchSub: n => `ທັງໝົດ ${n} ສາຂາ — ກົດເລືອກສາຂາເພື່ອເບິ່ງຕຳແໜ່ງຂອງສາຂານັ້ນ`,
     branchLabel: "ສາຂາ",
@@ -173,7 +202,7 @@ const I18N = {
     nDuties: n => `${n} ພາລະບົດບາດຫຼັກ`,
     openN: n => `ເປີດຮັບ ${n} ຕຳແໜ່ງ`,
     openZero: "ຝາກປະຫວັດໄວ້",
-    seatsN: n => `ຮັບ ${n} ອັດຕາ`,
+    seatsN: n => `ຮັບ ${n} ຕຳແຫໜ່ງ`,
     listedN: n => `ມີ ${n} ຕຳແໜ່ງໃນສາຂານີ້`,
     back: "← ກັບໄປໜ້າຝ່າຍທັງໝົດ",
     openPositions: "ຕຳແໜ່ງເປີດຮັບ",
@@ -204,6 +233,9 @@ const I18N = {
     errNeedField: label => `ກະລຸນາກອກ: ${label}`,
     sending: "ກຳລັງສົ່ງໃບສະໝັກ...",
     sent: "ສົ່ງໃບສະໝັກຮຽບຮ້ອຍ ຂອບໃຈທີ່ສົນໃຈຮ່ວມງານກັບພວກເຮົາ",
+    navOpen: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
+    openingsTitle: "ຕຳແໜ່ງທີ່ກຳລັງເປີດຮັບທັງໝົດ",
+    openingsSub: "ລວມຕຳແໜ່ງວ່າງຈາກທຸກສາຂາ ແລະ ທຸກຝ່າຍ ທີ່ທ່ານສາມາດຍື່ນສະໝັກໄດ້ທັນທີ",
     sendFailed: "ເກີດຂໍ້ຜິດພາດໃນການສົ່ງໃບສະໝັກ ກະລຸນາລອງໃໝ່ອີກຄັ້ງ"
   },
   en: {
@@ -253,6 +285,9 @@ const I18N = {
     errNeedField: label => `Please fill in: ${label}`,
     sending: "Submitting your application...",
     sent: "Application submitted — thank you for your interest!",
+    navOpen: "Open Positions",
+    openingsTitle: "All Open Positions",
+    openingsSub: "Browse all available roles across all branches and departments ready for your application.",
     sendFailed: "Something went wrong while submitting. Please try again."
   }
 };
@@ -377,12 +412,18 @@ function bindBranchTabs(){
 }
 
 /* ---------------- Directory view ---------------- */
+/* ---------------- Directory view ---------------- */
 function renderDirectory(){
   const branch = currentBranch();
   const totalOpen = branchTotalSeats(branch);
 
-  // ดึงทุกแผนกที่มีตำแหน่งอย่างน้อย 1 ตำแหน่งมาแสดงเสมอ
-  const activeDepts = DEPARTMENTS.filter(d => branchListedPositions(d, branch).length > 0);
+  const activeDepts = DEPARTMENTS
+    .filter(d => branchListedPositions(d, branch).length > 0)
+    .sort((a, b) => {
+      const openA = branchOpenPositions(a, branch).length > 0;
+      const openB = branchOpenPositions(b, branch).length > 0;
+      return (openA === openB) ? 0 : openA ? -1 : 1;
+    });
 
   app.innerHTML = `
     <section class="relative overflow-hidden py-14 sm:py-20 lg:py-28">
@@ -399,29 +440,29 @@ function renderDirectory(){
         <p class="mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:mt-6 sm:text-lg">${t("heroSub")}</p>
 
         <div class="mt-8 flex flex-wrap gap-3 sm:mt-10 sm:gap-4">
-          <div class="flex-1 min-w-[140px] rounded-2xl border border-white/60 bg-white/70 px-5 py-4 shadow-xl shadow-indigo-500/10 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:flex-none sm:px-7 sm:py-5">
-            <!-- อัปเดตตัวเลขแผนกให้แสดงเฉพาะที่มีตำแหน่งในสาขานี้ -->
+          <div class="flex-1 min-w-[140px] rounded-2xl border border-white/60 bg-white/70 px-5 py-4 shadow-xl shadow-indigo-500/10 backdrop-blur-xl sm:flex-none sm:px-7 sm:py-5">
             <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-2xl font-extrabold text-transparent sm:text-3xl">${activeDepts.length}</b>
             <span class="text-sm font-medium text-slate-500">${t("statDepts")}</span>
           </div>
-          <div class="flex-1 min-w-[140px] rounded-2xl border border-white/60 bg-white/70 px-5 py-4 shadow-xl shadow-indigo-500/10 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:flex-none sm:px-7 sm:py-5">
-            <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-2xl font-extrabold text-transparent sm:text-3xl">${totalOpen}</b>
+          
+          <!-- เปลี่ยนจากปุ่ม Button เป็นลิงก์ (a href="#/openings") พาไปหน้าใหม่เลย -->
+          <a href="#/openings" class="block group flex-1 min-w-[140px] cursor-pointer rounded-2xl border border-white/60 bg-white/70 px-5 py-4 text-left shadow-xl shadow-indigo-500/10 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-2xl sm:flex-none sm:px-7 sm:py-5">
+            <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-2xl font-extrabold text-transparent transition-transform duration-300 group-active:scale-95 sm:text-3xl">${totalOpen}</b>
             <span class="text-sm font-medium text-slate-500">${t("statOpen")}</span>
-          </div>
+          </a>
         </div>
       </div>
     </section>
 
     ${branchTabsHtml()}
 
-    <section class="relative pb-16 sm:pb-24">
+    <section id="departments-grid" class="relative pb-16 sm:pb-24">
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <div class="mb-8 sm:mb-10">
           <h2 class="font-display text-2xl font-bold text-slate-900 sm:text-3xl">${t("dirTitle")}</h2>
           <p class="mt-1 text-slate-500">${t("dirSub")}</p>
         </div>
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-          <!-- แสดงเฉพาะการ์ดแผนกที่มีตำแหน่ง ถ้าไม่มีเลยให้แสดงข้อความแจ้งเตือน -->
           ${activeDepts.length > 0 
             ? activeDepts.map(d => deptCard(d)).join("")
             : `<div class="col-span-full rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-semibold text-slate-400">ປັດຈຸບັນຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບໃນສາຂານີ້ <br>(ไม่มีตำแหน่งเปิดรับในสาขานี้)</div>`
@@ -431,20 +472,39 @@ function renderDirectory(){
     </section>
   `;
   bindBranchTabs();
+  
+  // สคริปต์วาร์ปหายไปแล้วครับ!
 }
 
 function deptCard(d){
-  const openN = branchOpenPositions(d).length;
-  const listedN = branchListedPositions(d).length;
+  const branch = currentBranch();
+  const openPos = branchOpenPositions(d, branch);
+  const totalSeats = openPos.reduce((sum, p) => sum + getPositionHeadcount(branch, p), 0);
+  
+  // ดึงวันที่ปิดรับสมัครของทุกตำแหน่งในแผนกนี้ที่เปิดรับอยู่ แล้วหาตัวที่ใกล้วันหมดอายุที่สุด (Earliest deadline)
+  const deadlines = openPos.map(p => getPositionDeadline(branch, p)).filter(Boolean).sort();
+  const earliestDeadline = deadlines[0]; // เอาวันที่ใกล้สุดมาแสดง
+
+  // เพิ่ม js-open-dept ให้กับแผนกที่มีคนเปิดรับ
   return `
-    <a class="group relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-md transition-all duration-300 ease-in-out hover:-translate-y-2 hover:scale-[1.02] hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-500/20 sm:p-7" href="#/dept/${d.id}">
+    <a class="group relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-md transition-all duration-300 ease-in-out hover:-translate-y-2 hover:scale-[1.02] hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-500/20 sm:p-7 ${totalSeats > 0 ? "js-open-dept" : ""}" href="#/dept/${d.id}">
       <span class="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 transition-transform duration-300 group-hover:scale-x-100"></span>
       <span class="inline-flex w-fit items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 font-mono text-[0.68rem] font-bold tracking-widest text-indigo-600">${escapeHtml(d.code || "")}</span>
       <h3 class="font-display text-lg font-bold text-slate-900 transition-colors duration-300 group-hover:text-indigo-600">${escapeHtml(tr(d, "name"))}</h3>
       <p class="line-clamp-3 text-sm text-slate-500">${escapeHtml(tr(d, "mission"))}</p>
-      <div class="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
-        <span class="text-slate-400">${t("nDuties")(trList(d, "responsibilities").length)}</span>
-        <span class="font-bold ${openN === 0 ? "text-slate-400" : "text-emerald-600"}">${openN > 0 ? t("openN")(openN) : t("listedN")(listedN)}</span>
+      
+      <div class="mt-auto flex flex-col gap-1.5 border-t border-slate-100 pt-4 text-xs">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-slate-400">${t("nDuties")(trList(d, "responsibilities").length)}</span>
+          <span class="font-bold ${totalSeats === 0 ? "text-slate-400" : "text-emerald-600"}">${totalSeats > 0 ? t("seatsN")(totalSeats) : t("openZero")}</span>
+        </div>
+        
+        <!-- แสดงวันที่ปิดรับสมัคร (ถ้ามีตั้งค่าไว้ในหลังบ้าน) -->
+        ${earliestDeadline && totalSeats > 0 ? `
+          <div class="text-right text-[10px] font-semibold text-rose-500">
+            ⏳ ປິດຮັບ: ${escapeHtml(earliestDeadline)}
+          </div>
+        ` : ""}
       </div>
     </a>
   `;
@@ -458,24 +518,37 @@ function deptSidebarItem(d, active){
     <a class="grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1 rounded-xl px-3 py-2.5 transition-all duration-200 ${active ? "bg-gradient-to-r from-indigo-50 to-purple-50 ring-1 ring-indigo-200" : "hover:bg-slate-50"}" href="#/dept/${d.id}">
       <span class="inline-flex w-fit items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-mono text-[0.6rem] font-bold tracking-widest text-indigo-600">${escapeHtml(d.code || "")}</span>
       <span class="truncate text-sm font-semibold ${active ? "text-indigo-700" : "text-slate-700"}">${escapeHtml(tr(d, "name"))}</span>
-      <span class="col-start-2 text-[0.72rem] font-semibold ${openN === 0 ? "text-slate-400" : "text-emerald-600"}">${openN > 0 ? t("openN")(openN) : t("listedN")(listedN)}</span>
+      <span class="col-start-2 text-[0.72rem] font-semibold ${openN === 0 ? "text-slate-400" : "text-emerald-600"}">${openN > 0 ? t("openN")(openN) : t("openZero")}</span>
     </a>
   `;
 }
 
+/* ---------------- Department detail view ---------------- */
 function renderDetail(deptId){
   const d = DEPARTMENTS.find(x => x.id === deptId);
   if(!d){ renderDirectory(); return; }
   const branch = currentBranch();
+
+  if (branchListedPositions(d, branch).length === 0) {
+    const firstAvailableDept = DEPARTMENTS.find(dept => branchListedPositions(dept, branch).length > 0);
+    if (firstAvailableDept) {
+      location.hash = `#/dept/${firstAvailableDept.id}`;
+    } else {
+      location.hash = `#/`;
+    }
+    return;
+  }
   
-  /* ສະແດງສະເພາະຕຳແໜ່ງທີ່ສາຂານີ້ມີ — ຮັກສາ index ເດີມຂອງ d.positions ໄວ້
-     ເພາະປຸ່ມສະໝັກອ້າງອີງດ້ວຍ data-apply="${i}" */
   const positions = (d.positions || [])
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => hasPositionInBranch(branch, p));
+    .filter(({ p }) => hasPositionInBranch(branch, p))
+    .sort((a, b) => {
+      const openA = isPositionOpenInBranch(branch, a.p);
+      const openB = isPositionOpenInBranch(branch, b.p);
+      return (openA === openB) ? 0 : openA ? -1 : 1;
+    });
+    
   const resp = trList(d, "responsibilities");
-  
-  // เมนูด้านซ้ายก็แสดงทุกแผนกที่มีตำแหน่งเช่นกัน
   const activeDeptsSidebar = DEPARTMENTS.filter(dept => branchListedPositions(dept, branch).length > 0);
 
   app.innerHTML = `
@@ -483,7 +556,6 @@ function renderDetail(deptId){
     <section class="py-8 sm:py-14">
       <div class="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 sm:gap-8 sm:px-6 lg:grid-cols-[272px_1fr]">
         
-        <!-- เมนูด้านซ้าย (Sidebar): ดึงรายการแผนกที่ผ่านการกรองมาแสดง -->
         <aside class="order-2 lg:order-1 lg:sticky lg:top-24 lg:self-start">
           <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <h2 class="mb-3 px-1 font-display text-xs font-bold uppercase tracking-widest text-slate-400">${t("dirTitle")}</h2>
@@ -493,7 +565,6 @@ function renderDetail(deptId){
           </div>
         </aside>
 
-        <!-- เนื้อหาหลักด้านขวา -->
         <div class="order-1 min-w-0 lg:order-2">
           <a href="#/" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors duration-200 hover:text-indigo-600">${t("back")}</a>
           <div class="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
@@ -502,15 +573,15 @@ function renderDetail(deptId){
               <h1 class="mt-3 font-display text-2xl font-extrabold text-slate-900 sm:text-3xl lg:text-4xl">${escapeHtml(tr(d, "name"))}</h1>
               <p class="mt-3 max-w-2xl text-slate-600">${escapeHtml(tr(d, "mission"))}</p>
             </div>
-            <div class="flex shrink-0 items-center gap-4 rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-purple-50 px-6 py-4 text-center shadow-md sm:flex-col sm:gap-0">
-              <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-3xl font-extrabold text-transparent">${positions.filter(({ p }) => isPositionOpenInBranch(branch, p)).length}</b>
-              <span class="text-xs font-semibold text-slate-500">${t("openPositions")}</span>
-            </div>
+            
+            <!-- เปลี่ยนจากปุ่ม เป็นลิงก์พาไปหน้า openings แทนเช่นกัน -->
+            <a href="#/openings" class="group flex shrink-0 cursor-pointer items-center gap-4 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-purple-50 px-6 py-4 text-center shadow-md transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/20 sm:flex-col sm:gap-0">
+              <b class="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-display text-3xl font-extrabold text-transparent transition-transform duration-300 group-active:scale-95">${positions.filter(({ p }) => isPositionOpenInBranch(branch, p)).length}</b>
+              <span class="text-xs font-semibold text-indigo-500">${t("openPositions")}</span>
+            </a>
           </div>
 
           <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-            
-            <!-- กล่องซ้าย (ในเนื้อหาหลัก): ภาระหน้าที่ของแผนก (ทำเป็นลิ้นชัก) -->
             <div class="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <details class="group marker:content-none">
                 <summary class="flex cursor-pointer items-center justify-between font-display text-base font-bold text-slate-900 transition-colors duration-200 hover:text-indigo-600">
@@ -525,18 +596,18 @@ function renderDetail(deptId){
               </details>
             </div>
 
-            <!-- กล่องขวา: ตำแหน่งที่เปิดรับ -->
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div id="positions-container" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-500 sm:p-6">
               <h4 class="mb-4 font-display text-base font-bold text-slate-900">${t("posTitle")}</h4>
               <div class="flex flex-col gap-4">
                 ${positions.length
                   ? positions.map(({ p, i }) => positionCard(d, p, i)).join("")
-                  : `<div class="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-400">${t("posEmpty")}</div>`
+                  : `
+                    <div class="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-200 p-6 text-center">
+                      <span class="text-sm text-slate-400">${t("posEmpty")}</span>
+                      <button class="inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 sm:w-auto" data-apply-general="${d.id}">${t("applyGeneral")}</button>
+                    </div>
+                  `
                 }
-              </div>
-              <div class="mt-4">
-                <!-- ปุ่ม Apply ที่คุณแก้ไว้สวยงามแล้ว -->
-                <button class="inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 sm:w-auto" data-apply-general="${d.id}">${t("applyGeneral")}</button>
               </div>
             </div>
 
@@ -564,18 +635,22 @@ function positionCard(d, p, i){
   const branch = currentBranch();
   const opened = isPositionOpenInBranch(branch, p);
   const headcount = getPositionHeadcount(branch, p);
+  const deadline = getPositionDeadline(branch, p); // ดึงวันที่ปิดรับ
 
   return `
-    <div class="group/card rounded-2xl border ${opened ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"} p-4 shadow-sm transition-all duration-300 sm:p-5 ${opened ? "hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/10" : ""}">
+    <div class="group/card rounded-2xl border ${opened ? "border-indigo-200 bg-white js-open-position" : "border-slate-100 bg-slate-50"} p-4 shadow-sm transition-all duration-500 sm:p-5 ${opened ? "hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/10" : ""}">
       <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div>
           <h5 class="font-display text-base font-bold text-slate-900">${escapeHtml(tr(p, "title"))}</h5>
-          <div class="mt-2 flex flex-wrap gap-2">
+          <div class="mt-2 flex flex-wrap items-center gap-2">
             <span class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(tr(p, "type") || p.type || "")}</span>
             
             ${headcount > 0
               ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">${t("seatsN")(headcount)}</span>`
               : `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>`}
+            
+            <!-- แสดงวันที่ปิดรับสมัครตัวเล็กๆ -->
+            ${deadline ? `<span class="text-xs font-medium text-slate-400">📅 ປິດຮັບສະໝັກ: ${escapeHtml(deadline)}</span>` : ""}
           </div>
         </div>
         <button class="w-full ${opened
@@ -609,9 +684,6 @@ const form = document.getElementById("apply-form");
 const statusEl = document.getElementById("apply-status");
 const submitBtn = document.getElementById("apply-submit");
 
-/* statusEl.className gets reassigned wholesale on every status update (not just
-   toggled), so its Tailwind classes have to be re-applied here rather than baked
-   into the static HTML once. */
 function setApplyStatus(msg, kind = "neutral"){
   statusEl.textContent = msg;
   statusEl.className = "text-sm font-semibold " + (
@@ -707,8 +779,8 @@ form.addEventListener("submit", async (e) => {
   }
 
   /* เก็บค่าจากช่องกรอกที่ admin ตั้งค่าไว้ */
-  const answers = {};          // { label: value } สำหรับช่องข้อความ
-  const fileUploads = [];      // { field, file } สำหรับช่องแนบไฟล์/รูป
+  const answers = {};          
+  const fileUploads = [];      
   for(const f of (FORM_FIELDS || [])){
     const el = form.querySelector(`[data-field-id="${CSS.escape(f.id)}"]`);
     if(!el) continue;
@@ -740,11 +812,8 @@ form.addEventListener("submit", async (e) => {
   setApplyStatus(t("sending"));
 
   try {
-    // สร้าง document ID ล่วงหน้า เพื่อใช้เป็นโฟลเดอร์เก็บไฟล์แนบ
     const appRef = doc(collection(db, APPLICATIONS_COLLECTION));
 
-    // อัปโหลดไฟล์แนบทั้งหมด (PDF ไปโฟลเดอร์ resumes เพื่อเข้ากับ rules เดิม,
-    // รูปภาพไปโฟลเดอร์ attachments)
     const attachments = [];
     for(const { field, file } of fileUploads){
       const folder = field.type === "image" ? ATTACHMENTS_STORAGE_FOLDER : RESUME_STORAGE_FOLDER;
@@ -755,7 +824,6 @@ form.addEventListener("submit", async (e) => {
       attachments.push({ label: field.label, name: file.name, url, path });
     }
 
-    // ข้อความอีเมลแจ้งเตือน HR
     const answerLines = Object.entries(answers)
       .map(([label, val]) => `${label}: ${val || "-"}`).join("\n");
     const attachmentLines = attachments.length
@@ -789,10 +857,6 @@ form.addEventListener("submit", async (e) => {
       advanceProfile: !applyingToOpenPosition,
       status: "new",
       submittedAt: serverTimestamp(),
-      // ฟิลด์ด้านล่างถูกอ่านโดย Extension "Trigger Email from Firestore"
-      // เพื่อส่งอีเมลแจ้ง HR อัตโนมัติ — ชื่อฟิลด์ `to` และ `message`
-      // เป็นชื่อที่ extension กำหนดตายตัว ห้ามเปลี่ยน
-      // (รายชื่ออีเมล NOTIFY_EMAILS แก้ได้จากหน้า admin → แท็บ "ตั้งค่า")
       to: NOTIFY_EMAILS,
       message: { subject, text: emailText }
     });
@@ -808,15 +872,146 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+
+/* ---------------- All Openings View ---------------- */
+function renderOpenings(){
+  let allOpenings = [];
+  BRANCHES.forEach(branch => {
+    DEPARTMENTS.forEach(dept => {
+      const openPos = branchOpenPositions(dept, branch);
+      openPos.forEach(p => {
+        const deadline = getPositionDeadline(branch, p); // ดึง deadline
+        allOpenings.push({ branch, dept, p, count: getPositionHeadcount(branch, p), deadline });
+      });
+    });
+  });
+
+  app.innerHTML = `
+    <section class="relative overflow-hidden py-14 sm:py-20 lg:py-28">
+      <div class="pointer-events-none absolute -left-24 -top-24 h-96 w-96 animate-blob rounded-full bg-indigo-400/30 blur-3xl"></div>
+      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <a href="#/" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors duration-200 hover:text-indigo-600">${t("back")}</a>
+        <h1 class="mt-3 font-display text-3xl font-extrabold text-slate-900 sm:text-5xl">${t("openingsTitle")}</h1>
+        <p class="mt-4 max-w-2xl text-base text-slate-600 sm:text-lg">${t("openingsSub")}</p>
+      </div>
+    </section>
+    
+    <section class="relative pb-16 sm:pb-24">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          ${allOpenings.length > 0 
+            ? allOpenings.map((item, index) => openingCard(item, index)).join("") 
+            : `<div class="col-span-full rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-semibold text-slate-400">ປັດຈຸບັນຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບ <br>(ยังไม่มีตำแหน่งเปิดรับในขณะนี้)</div>`
+          }
+        </div>
+      </div>
+    </section>
+  `;
+
+  app.querySelectorAll("[data-apply-global]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const index = Number(btn.dataset.applyGlobal);
+      const item = allOpenings[index];
+      
+      currentBranchId = item.branch.id;
+      localStorage.setItem("ssmi-branch", currentBranchId);
+      
+      openApplyModal(item.dept, item.p);
+    });
+  });
+}
+
+function openingCard(item, index) {
+  const duties = trList(item.p, "duties");
+  const description = tr(item.p, "description");
+
+  return `
+    <div class="group flex flex-col justify-between rounded-3xl border border-indigo-100 bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/20">
+      <div>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <span class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 font-mono text-[0.7rem] font-bold text-indigo-600">
+            📍 ${escapeHtml(tr(item.branch, "name"))}
+          </span>
+          <span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600">
+            ${t("seatsN")(item.count)}
+          </span>
+        </div>
+        
+        <h3 class="font-display text-lg font-bold text-slate-900 group-hover:text-indigo-600">${escapeHtml(tr(item.p, "title"))}</h3>
+        <p class="mt-1 text-sm font-semibold text-indigo-500">${escapeHtml(tr(item.dept, "name"))}</p>
+        
+        <!-- แสดงวันที่ปิดรับสมัคร -->
+        ${item.deadline ? `<p class="mt-2 text-xs font-medium text-slate-400">📅 ປິດຮັບສະໝັກ: ${escapeHtml(item.deadline)}</p>` : ""}
+
+        ${description ? `<p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(description)}</p>` : ""}
+        
+        ${duties.length ? `
+          <details class="group mt-4 border-t border-slate-100 pt-3 marker:content-none">
+            <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-purple-600">
+              ${t("dutiesN")(duties.length)}
+              <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </span>
+            </summary>
+            <ul class="details-content mt-4 space-y-2">
+              ${duties.map(du => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(du)}</li>`).join("")}
+            </ul>
+          </details>
+        ` : ""}
+      </div>
+      
+      <div class="mt-6 pt-4 border-t border-slate-100">
+        <button type="button" class="w-full inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:scale-105" data-apply-global="${index}">
+          ${t("applyBtn")}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 /* ---------------- Router ---------------- */
+function updateNavState(hash) {
+  // ดึงปุ่มเมนูทั้งสองปุ่มมา
+  const navAll = document.querySelector('[data-i18n="navAll"]');
+  const navOpen = document.querySelector('[data-i18n="navOpen"]');
+  if(!navAll || !navOpen) return;
+
+  // กำหนดสีของปุ่มตอนที่ "ถูกเลือก" (มีกรอบสีม่วง ตัวหนา) และ "ไม่ได้เลือก" (สีเทากลืนไปกับพื้น)
+  const activeCls = "rounded-full bg-indigo-50 px-3 py-1.5 font-bold text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800".split(" ");
+  const inactiveCls = "font-semibold text-slate-600 hover:text-indigo-600".split(" ");
+
+  if(hash === "openings") {
+    // ถ้าอยู่หน้า "ตำแหน่งที่เปิดรับ" ให้ไฮไลท์ปุ่ม navOpen
+    navOpen.classList.add(...activeCls);
+    navOpen.classList.remove(...inactiveCls);
+    
+    navAll.classList.add(...inactiveCls);
+    navAll.classList.remove(...activeCls);
+  } else {
+    // ถ้าอยู่หน้าแรก หรือหน้าอื่นๆ ให้ไฮไลท์ปุ่ม navAll แทน
+    navAll.classList.add(...activeCls);
+    navAll.classList.remove(...inactiveCls);
+    
+    navOpen.classList.add(...inactiveCls);
+    navOpen.classList.remove(...activeCls);
+  }
+}
+
 function route({ keepScroll = false } = {}){
   const scrollY = window.scrollY;
   const hash = location.hash.replace(/^#\/?/, "");
-  if(hash.startsWith("dept/")){
+  
+  // เรียกใช้ฟังก์ชันสลับสีปุ่มทุกครั้งที่มีการเปลี่ยนหน้า
+  updateNavState(hash);
+  
+  if(hash === "openings"){
+    renderOpenings();
+  } else if(hash.startsWith("dept/")){
     renderDetail(hash.replace("dept/", ""));
   } else {
     renderDirectory();
   }
+  
   window.scrollTo(0, keepScroll ? scrollY : 0);
 }
 
@@ -825,3 +1020,4 @@ window.addEventListener("hashchange", route);
 applyStaticI18n();
 app.innerHTML = `<section class="px-6 py-24 text-center text-slate-400"><div class="mx-auto max-w-6xl">${t("loading")}</div></section>`;
 Promise.all([loadDepartments(), loadBranches(), loadSettings()]).then(route);
+
