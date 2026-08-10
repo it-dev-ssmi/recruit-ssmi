@@ -819,20 +819,74 @@ $("reload-apps-btn").addEventListener("click", loadApplications);
    ========================================================================== */
 let formFields = [];
 
+/* ຊ່ອງລະບົບ 3 ຊ່ອງ — ລຶບບໍ່ໄດ້ ແລະ ປ່ຽນປະເພດບໍ່ໄດ້ (Firestore rules ບັງຄັບໄວ້)
+   ແຕ່ປ່ຽນຊື່ປ້າຍ 2 ພາສາ / ຈັດລຳດັບ / ປັບຄວາມກວ້າງ / ໃສ່ placeholder ໄດ້ */
+const CORE_DEFAULTS = [
+  { id: "core_name",  core: "name",  type: "text",  label_la: "ຊື່ ແລະ ນາມສະກຸນ", label_en: "Full name",    width: "half", required: true, placeholder: "" },
+  { id: "core_email", core: "email", type: "email", label_la: "ອີເມວ",            label_en: "Email",        width: "half", required: true, placeholder: "" },
+  { id: "core_phone", core: "phone", type: "tel",   label_la: "ເບີໂທລະສັບ",       label_en: "Phone number", width: "half", required: true, placeholder: "" }
+];
+const CORE_TITLE = { name: "ຊື່ ແລະ ນາມສະກຸນ", email: "ອີເມວ", phone: "ເບີໂທລະສັບ" };
+
+/* ປະເພດຊ່ອງ — ຕໍ່ຈາກ form-defaults.js ແລ້ວເພີ່ມ email/tel ຖ້າຍັງບໍ່ມີ */
+const ALL_FIELD_TYPES = (() => {
+  const list = Array.isArray(FIELD_TYPES) ? [...FIELD_TYPES] : [{ value: "text", label: "ຂໍ້ຄວາມ" }];
+  const extra = [
+    { value: "email", label: "ອີເມວ" },
+    { value: "tel",   label: "ເບີໂທລະສັບ" }
+  ];
+  extra.forEach(e => { if(!list.some(x => x.value === e.value)) list.push(e); });
+  return list;
+})();
+
+function normalizeFormFields(fields, legacyCore){
+  const list = (Array.isArray(fields) ? fields : []).map(f => ({ ...f }));
+  /* ຂໍ້ມູນເກົ່າມີແຕ່ label ດຽວ — ເຕີມ label_la / width / type ໃຫ້ຄົບ */
+  list.forEach(f => {
+    f.label_la = f.label_la || f.label || "";
+    f.label_en = f.label_en || "";
+    f.label    = f.label_la;
+    f.width    = f.width || "half";
+    f.type     = f.type || "text";
+  });
+  const missing = [];
+  CORE_DEFAULTS.forEach(def => {
+    const found = list.find(f => f.core === def.core);
+    if(found){
+      found.id       = found.id || def.id;
+      found.type     = def.type;
+      found.required = true;
+      found.label_la = found.label_la || found.label || def.label_la;
+      found.label_en = found.label_en || def.label_en;
+      found.width    = found.width || def.width;
+    } else {
+      missing.push({
+        ...def,
+        label_la: (legacyCore && legacyCore[def.core + "_la"]) || def.label_la,
+        label_en: (legacyCore && legacyCore[def.core + "_en"]) || def.label_en
+      });
+    }
+  });
+  return [...missing, ...list];
+}
+
 async function loadSettings(){
+  if(FIREBASE_NOT_CONFIGURED) return;
   try {
     const [notifSnap, formSnap] = await Promise.all([
       getDoc(doc(db, SETTINGS_COLLECTION, "notifications")),
       getDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"))
     ]);
+
     const emails = (notifSnap.exists() && Array.isArray(notifSnap.data().emails) && notifSnap.data().emails.length)
       ? notifSnap.data().emails
       : HR_NOTIFY_EMAILS;
     $("notify-emails").value = emails.join("\n");
 
-    formFields = (formSnap.exists() && Array.isArray(formSnap.data().fields))
-      ? formSnap.data().fields
-      : structuredClone(DEFAULT_FORM_FIELDS);
+    formFields = formSnap.exists()
+      ? normalizeFormFields(formSnap.data().fields, formSnap.data().coreFields)
+      : normalizeFormFields(structuredClone(DEFAULT_FORM_FIELDS));
+
     renderFormFields();
   } catch (err){
     console.error(err);
@@ -863,49 +917,72 @@ $("notify-form").addEventListener("submit", async e => {
   }
 });
 
-/* ---------- ตัวสร้างฟอร์ม ---------- */
+/* ---------- ตัวสร้างฟอร์ม (จัดการทุกช่อง รวมช่องระบบ) ---------- */
 const formFieldsContainer = $("form-fields-container");
 
 function fieldBlockHtml(f, idx, total){
-  const typeOpts = FIELD_TYPES.map(t =>
+  const isCore = !!f.core;
+  const typeOpts = ALL_FIELD_TYPES.map(t =>
     `<option value="${t.value}" ${t.value === f.type ? "selected" : ""}>${t.label}</option>`).join("");
   const isSelect = f.type === "select";
+  const isFile = f.type === "file" || f.type === "image";
   return `
     <div class="position-edit-block form-field-block" data-idx="${idx}">
       <div class="position-edit-head">
-        <span class="position-edit-label">ຊ່ອງກອກທີ ${idx + 1}</span>
+        <span class="position-edit-label">
+          ຊ່ອງທີ ${idx + 1}${isCore ? ` · ຊ່ອງລະບົບ (${escapeHtml(CORE_TITLE[f.core] || f.core)})` : ""}
+        </span>
         <div class="field-block-actions">
           <button type="button" class="btn btn--ghost btn--sm" data-ff-move="up" ${idx === 0 ? "disabled" : ""}>↑</button>
           <button type="button" class="btn btn--ghost btn--sm" data-ff-move="down" ${idx === total - 1 ? "disabled" : ""}>↓</button>
-          <button type="button" class="btn btn--danger btn--sm" data-ff-remove>ລຶບຊ່ອງນີ້</button>
+          ${isCore
+            ? `<span class="form-status">ລຶບບໍ່ໄດ້</span>`
+            : `<button type="button" class="btn btn--danger btn--sm" data-ff-remove>ລຶບຊ່ອງນີ້</button>`}
         </div>
       </div>
+
       <div class="field-grid">
         <label class="field">
-          <span>ຊື່ຊ່ອງ (ສະແດງໃຫ້ຜູ້ສະໝັກເຫັນ) <em>*</em></span>
-          <input type="text" class="ff-label" value="${escapeHtml(f.label || "")}" placeholder="ເຊັ່ນ ລະດັບການສຶກສາ">
+          <span>ຊື່ຊ່ອງ (ພາສາລາວ) <em>*</em></span>
+          <input type="text" class="ff-label-la" value="${escapeHtml(f.label_la || f.label || "")}">
         </label>
         <label class="field">
-          <span>ປະເພດຊ່ອງ</span>
-          <select class="ff-type">${typeOpts}</select>
+          <span>ຊື່ຊ່ອງ (English)</span>
+          <input type="text" class="ff-label-en" value="${escapeHtml(f.label_en || "")}">
         </label>
       </div>
+
       <div class="field-grid">
         <label class="field">
+          <span>ປະເພດຊ່ອງ${isCore ? " (ຊ່ອງລະບົບ ປ່ຽນບໍ່ໄດ້)" : ""}</span>
+          <select class="ff-type" ${isCore ? "disabled" : ""}>${typeOpts}</select>
+        </label>
+        <label class="field">
+          <span>ຄວາມກວ້າງໃນຟອມ</span>
+          <select class="ff-width">
+            <option value="half" ${f.width !== "full" ? "selected" : ""}>ເຄິ່ງແຖວ (2 ຊ່ອງຕໍ່ແຖວ)</option>
+            <option value="full" ${f.width === "full" ? "selected" : ""}>ເຕັມແຖວ</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="field-grid">
+        <label class="field ff-placeholder-wrap" ${isFile || isSelect ? "hidden" : ""}>
           <span>ຂໍ້ຄວາມຕົວຢ່າງໃນຊ່ອງ (placeholder)</span>
           <input type="text" class="ff-placeholder" value="${escapeHtml(f.placeholder || "")}">
         </label>
         <label class="field field--check">
           <span>&nbsp;</span>
           <label class="check-inline">
-            <input type="checkbox" class="ff-required" ${f.required ? "checked" : ""}>
-            <span>ບັງຄັບກອກ</span>
+            <input type="checkbox" class="ff-required" ${f.required ? "checked" : ""} ${isCore ? "disabled" : ""}>
+            <span>ບັງຄັບກອກ${isCore ? " (ຊ່ອງລະບົບ ບັງຄັບສະເໝີ)" : ""}</span>
           </label>
         </label>
       </div>
+
       <label class="field ff-options-wrap" ${isSelect ? "" : "hidden"}>
         <span>ຕົວເລືອກ (1 ແຖວ = 1 ຕົວເລືອກ) — ໃຊ້ກັບປະເພດ "ຕົວເລືອກ" ເທົ່ານັ້ນ</span>
-        <textarea class="ff-options" rows="3" placeholder="ປະລິນຍາຕີ&#10;ປະລິນຍາໂທ">${escapeHtml((f.options || []).join("\n"))}</textarea>
+        <textarea class="ff-options" rows="3">${escapeHtml((f.options || []).join("\n"))}</textarea>
       </label>
     </div>
   `;
@@ -914,12 +991,13 @@ function fieldBlockHtml(f, idx, total){
 function renderFormFields(){
   formFieldsContainer.innerHTML = formFields.length
     ? formFields.map((f, i) => fieldBlockHtml(f, i, formFields.length)).join("")
-    : `<div class="admin-empty"><p>ຍັງບໍ່ມີຊ່ອງກອກເພີ່ມເຕີມ</p><p class="admin-empty-sub">ຟອມຈະເຫຼືອສະເພາະ ຊື່ / ອີເມວ / ເບີໂທລະສັບ — ກົດ "+ ເພີ່ມຊ່ອງກອກ" ເພື່ອເພີ່ມ</p></div>`;
+    : `<div class="admin-empty"><p>ຍັງບໍ່ມີຊ່ອງກອກ</p></div>`;
 
   formFieldsContainer.querySelectorAll(".form-field-block").forEach(block => {
     const idx = Number(block.dataset.idx);
-    block.querySelector("[data-ff-remove]").addEventListener("click", () => {
-      if(!confirm(`ລຶບຊ່ອງ "${formFields[idx].label}" ? (ມີຜົນເມື່ອກົດ "ບັນທຶກຟອມ")`)) return;
+    block.querySelector("[data-ff-remove]")?.addEventListener("click", () => {
+      const nm = formFields[idx].label_la || formFields[idx].label || "";
+      if(!confirm(`ລຶບຊ່ອງ "${nm}" ? (ມີຜົນເມື່ອກົດ "ບັນທຶກຟອມ")`)) return;
       collectFormFieldsFromDom();
       formFields.splice(idx, 1);
       renderFormFields();
@@ -934,9 +1012,11 @@ function renderFormFields(){
       [formFields[idx + 1], formFields[idx]] = [formFields[idx], formFields[idx + 1]];
       renderFormFields();
     });
-    // แสดง/ซ่อนช่อง "ตัวเลือก" ตามประเภทที่เลือก
+    // แสดง/ซ่อนช่อง "ตัวเลือก" และ placeholder ตามประเภทที่เลือก
     block.querySelector(".ff-type").addEventListener("change", e => {
-      block.querySelector(".ff-options-wrap").hidden = e.target.value !== "select";
+      const v = e.target.value;
+      block.querySelector(".ff-options-wrap").hidden = v !== "select";
+      block.querySelector(".ff-placeholder-wrap").hidden = (v === "select" || v === "file" || v === "image");
     });
   });
 }
@@ -944,13 +1024,19 @@ function renderFormFields(){
 function collectFormFieldsFromDom(){
   const blocks = [...formFieldsContainer.querySelectorAll(".form-field-block")];
   if(!blocks.length) return;
+  const snapshot = formFields;
   formFields = blocks.map((block, i) => {
-    const existing = formFields[Number(block.dataset.idx)] || {};
+    const existing = snapshot[Number(block.dataset.idx)] || {};
+    const labelLa = block.querySelector(".ff-label-la").value.trim();
     return {
       id: existing.id || "f" + Date.now().toString(36) + i,
-      label: block.querySelector(".ff-label").value.trim(),
-      type: block.querySelector(".ff-type").value,
-      required: block.querySelector(".ff-required").checked,
+      core: existing.core || null,                       // ຊ່ອງລະບົບຮັກສາເຄື່ອງໝາຍໄວ້
+      label_la: labelLa,
+      label_en: block.querySelector(".ff-label-en").value.trim(),
+      label: labelLa,                                    // ເກັບໄວ້ເຜື່ອໂຄດເກົ່າ
+      type: existing.core ? existing.type : block.querySelector(".ff-type").value,
+      required: existing.core ? true : block.querySelector(".ff-required").checked,
+      width: block.querySelector(".ff-width").value,
       placeholder: block.querySelector(".ff-placeholder").value.trim(),
       options: block.querySelector(".ff-options").value
         .split("\n").map(s => s.trim()).filter(Boolean)
@@ -962,27 +1048,29 @@ $("add-form-field-btn").addEventListener("click", () => {
   collectFormFieldsFromDom();
   formFields.push({
     id: "f" + Date.now().toString(36),
-    label: "", type: "text", required: false, placeholder: "", options: []
+    core: null, label_la: "", label_en: "", label: "",
+    type: "text", required: false, width: "half", placeholder: "", options: []
   });
   renderFormFields();
-  const blocks = formFieldsContainer.querySelectorAll(".ff-label");
+  const blocks = formFieldsContainer.querySelectorAll(".ff-label-la");
   blocks[blocks.length - 1]?.focus();
 });
 
 $("save-form-fields-btn").addEventListener("click", async () => {
   collectFormFieldsFromDom();
-  const empty = formFields.find(f => !f.label);
+  formFields = normalizeFormFields(formFields);   // ກັນຊ່ອງລະບົບຫາຍ
+  const empty = formFields.find(f => !f.label_la);
   if(empty){
-    setStatus($("form-fields-status"), "ທຸກຊ່ອງຕ້ອງມີ \"ຊື່ຊ່ອງ\" — ກອກໃຫ້ຄົບກ່ອນບັນທຶກ", "err");
+    setStatus($("form-fields-status"), "ທຸກຊ່ອງຕ້ອງມີ \"ຊື່ຊ່ອງ (ພາສາລາວ)\" — ກອກໃຫ້ຄົບກ່ອນບັນທຶກ", "err");
     return;
   }
   const badSelect = formFields.find(f => f.type === "select" && !f.options.length);
   if(badSelect){
-    setStatus($("form-fields-status"), `ຊ່ອງ "${badSelect.label}" ເປັນປະເພດຕົວເລືອກ ແຕ່ຍັງບໍ່ໄດ້ໃສ່ຕົວເລືອກ`, "err");
+    setStatus($("form-fields-status"), `ຊ່ອງ "${badSelect.label_la}" ເປັນປະເພດຕົວເລືອກ ແຕ່ຍັງບໍ່ໄດ້ໃສ່ຕົວເລືອກ`, "err");
     return;
   }
   try {
-    await setDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"), { fields: formFields });
+    await setDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"), { fields: formFields }, { merge: true });
     setStatus($("form-fields-status"), `ບັນທຶກຟອມຮຽບຮ້ອຍ (${formFields.length} ຊ່ອງ) — ໜ້າເວັບສາທາລະນະໃຊ້ຟອມໃໝ່ທັນທີ`, "ok");
     renderFormFields();
   } catch (err){

@@ -104,24 +104,10 @@
         <input type="hidden" id="field-branch">
         <input type="hidden" id="field-branch-id">
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label class="block">
-            <span class="mb-1.5 block text-sm font-semibold text-slate-700" data-i18n="fName">ຊື່ ແລະ ນາມສະກຸນ <em>*</em></span>
-            <input type="text" id="field-name" required autocomplete="name" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10">
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-sm font-semibold text-slate-700" data-i18n="fEmail">ອີເມວ <em>*</em></span>
-            <input type="email" id="field-email" required autocomplete="email" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10">
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-sm font-semibold text-slate-700" data-i18n="fPhone">ເບີໂທລະສັບ <em>*</em></span>
-            <input type="tel" id="field-phone" required autocomplete="tel" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10">
-          </label>
-        </div>
-
-        <!-- ຊ່ອງກອກເພີ່ມເຕີມ — ໂຄງສ້າງມາຈາກ Firestore (settings/applicationForm)
-             ຈັດການໄດ້ຈາກໜ້າ admin → ແທັບ "ຕັ້ງຄ່າ" ໂດຍບໍ່ຕ້ອງແກ້ໂຄດ -->
-        <div id="custom-fields" class="space-y-4"></div>
+        <!-- ຊ່ອງກອກທັງໝົດ (ລວມ ຊື່ / ອີເມວ / ເບີໂທລະສັບ) ຖືກສ້າງດ້ວຍ app.js
+             ຕາມໂຄງສ້າງທີ່ຕັ້ງໄວ້ໃນ Firestore (settings/applicationForm)
+             ຈັດການໄດ້ຈາກໜ້າ admin → ແທັບ "ຕັ້ງຄ່າ" ໂດຍບໍ່ຕ້ອງແກ້ໂຄດອີກຕໍ່ໄປ -->
+        <div id="custom-fields" class="grid grid-cols-1 gap-4 sm:grid-cols-2"></div>
 
         <p class="text-xs text-slate-400" data-i18n="formNote">ເມື່ອກົດສົ່ງ ຂໍ້ມູນຂອງທ່ານຈະຖືກບັນທຶກເຂົ້າລະບົບ ແລະ ແຈ້ງເຕືອນຝ່າຍບຸກຄະລາກອນໂດຍອັດຕະໂນມັດ</p>
 

@@ -157,7 +157,47 @@ function branchTotalSeats(branch = currentBranch()){
    collection "settings") — ถ้ายังไม่เคยตั้งค่า จะใช้ค่าตั้งต้นจากไฟล์แทน
    ========================================================================== */
 let NOTIFY_EMAILS = HR_NOTIFY_EMAILS;
-let FORM_FIELDS = DEFAULT_FORM_FIELDS;
+/* ຊ່ອງລະບົບ 3 ຊ່ອງ (ຊື່ / ອີເມວ / ເບີໂທ) — ລຶບບໍ່ໄດ້ ເພາະ Firestore rules ບັງຄັບໄວ້
+   ແຕ່ປ່ຽນຊື່ປ້າຍ ຈັດລຳດັບ ແລະ ປັບຄວາມກວ້າງໄດ້ຈາກໜ້າ admin → ແທັບ "ຕັ້ງຄ່າ" */
+const CORE_DEFAULTS = [
+  { id: "core_name",  core: "name",  type: "text",  label_la: "ຊື່ ແລະ ນາມສະກຸນ", label_en: "Full name",    width: "half", required: true, placeholder: "" },
+  { id: "core_email", core: "email", type: "email", label_la: "ອີເມວ",            label_en: "Email",        width: "half", required: true, placeholder: "" },
+  { id: "core_phone", core: "phone", type: "tel",   label_la: "ເບີໂທລະສັບ",       label_en: "Phone number", width: "half", required: true, placeholder: "" }
+];
+
+/* ຮັບປະກັນວ່າຟອມມີຊ່ອງລະບົບຄົບ 3 ຊ່ອງສະເໝີ + ຮອງຮັບຂໍ້ມູນເກົ່າ (coreFields / label) */
+function normalizeFormFields(fields, legacyCore){
+  const list = (Array.isArray(fields) ? fields : []).map(f => ({ ...f }));
+  /* ຂໍ້ມູນເກົ່າມີແຕ່ label ດຽວ — ເຕີມ label_la / width / type ໃຫ້ຄົບ */
+  list.forEach(f => {
+    f.label_la = f.label_la || f.label || "";
+    f.label_en = f.label_en || "";
+    f.label    = f.label_la;
+    f.width    = f.width || "half";
+    f.type     = f.type || "text";
+  });
+  const missing = [];
+  CORE_DEFAULTS.forEach(def => {
+    const found = list.find(f => f.core === def.core);
+    if(found){
+      found.id       = found.id || def.id;
+      found.type     = def.type;          // ປະເພດຂອງຊ່ອງລະບົບ ປ່ຽນບໍ່ໄດ້
+      found.required = true;              // ບັງຄັບກອກສະເໝີ
+      found.label_la = found.label_la || found.label || def.label_la;
+      found.label_en = found.label_en || def.label_en;
+      found.width    = found.width || def.width;
+    } else {
+      missing.push({
+        ...def,
+        label_la: (legacyCore && legacyCore[def.core + "_la"]) || def.label_la,
+        label_en: (legacyCore && legacyCore[def.core + "_en"]) || def.label_en
+      });
+    }
+  });
+  return [...missing, ...list];
+}
+
+let FORM_FIELDS = normalizeFormFields(DEFAULT_FORM_FIELDS);
 
 async function loadSettings(){
   if(FIREBASE_NOT_CONFIGURED) return;
@@ -169,8 +209,8 @@ async function loadSettings(){
     if(notifSnap.exists() && Array.isArray(notifSnap.data().emails) && notifSnap.data().emails.length){
       NOTIFY_EMAILS = notifSnap.data().emails;
     }
-    if(formSnap.exists() && Array.isArray(formSnap.data().fields)){
-      FORM_FIELDS = formSnap.data().fields;
+    if(formSnap.exists()){
+      FORM_FIELDS = normalizeFormFields(formSnap.data().fields, formSnap.data().coreFields);
     }
   } catch (err){
     console.error("โหลดการตั้งค่าไม่สำเร็จ ใช้ค่าตั้งต้นแทน:", err);
@@ -696,31 +736,53 @@ const FIELD_INPUT_CLS = "w-full rounded-xl border border-slate-200 bg-slate-50 p
 const FIELD_FILE_CLS = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-indigo-600 hover:file:bg-indigo-100";
 const FIELD_LABEL_CLS = "mb-1.5 block text-sm font-semibold text-slate-700";
 
+/* ຊື່ປ້າຍຕາມພາສາທີ່ກຳລັງເປີດ */
+function fieldLabel(f){
+  return (LANG === "en" && f.label_en) ? f.label_en : (f.label_la || f.label || "");
+}
+
+/* ຊື່ທີ່ໃຊ້ເກັບລົງຖານຂໍ້ມູນ / ສົ່ງອີເມວ — ອີງພາສາລາວສະເໝີ ເພື່ອໃຫ້ admin ອ່ານງ່າຍ */
+function fieldKey(f){
+  return f.label_la || f.label || f.label_en || f.id;
+}
+
 function customFieldHtml(f){
   const req = f.required ? '<em>*</em>' : "";
-  const label = `<span class="${FIELD_LABEL_CLS}">${escapeHtml(f.label)} ${req}</span>`;
+  const label = `<span class="${FIELD_LABEL_CLS}">${escapeHtml(fieldLabel(f))} ${req}</span>`;
   const ph = escapeHtml(f.placeholder || "");
+  const wrap = `block ${f.width === "full" ? "sm:col-span-2" : ""}`;
+  /* ຊ່ອງລະບົບ: ໃສ່ id ເດີມ (field-name/field-email/field-phone) ແລະ autocomplete ໄວ້ນຳ */
+  const coreAttr = f.core
+    ? ` id="field-${escapeHtml(f.core)}" data-core="${escapeHtml(f.core)}" autocomplete="${
+        f.core === "name" ? "name" : f.core === "email" ? "email" : "tel"}"`
+    : "";
+
   switch(f.type){
     case "textarea":
-      return `<label class="block">${label}<textarea data-field-id="${escapeHtml(f.id)}" rows="4" placeholder="${ph}" class="${FIELD_INPUT_CLS} resize-y"></textarea></label>`;
+      return `<label class="${wrap}">${label}<textarea data-field-id="${escapeHtml(f.id)}" rows="4" placeholder="${ph}" class="${FIELD_INPUT_CLS} resize-y"></textarea></label>`;
     case "select": {
       const opts = (f.options || []).map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join("");
-      return `<label class="block">${label}<select data-field-id="${escapeHtml(f.id)}" class="${FIELD_INPUT_CLS}"><option value="">${t("selectPlaceholder")}</option>${opts}</select></label>`;
+      return `<label class="${wrap}">${label}<select data-field-id="${escapeHtml(f.id)}" class="${FIELD_INPUT_CLS}"><option value="">${t("selectPlaceholder")}</option>${opts}</select></label>`;
     }
     case "file":
-      return `<label class="block">${label}<input type="file" data-field-id="${escapeHtml(f.id)}" accept="application/pdf" class="${FIELD_FILE_CLS}"></label>`;
+      return `<label class="${wrap}">${label}<input type="file" data-field-id="${escapeHtml(f.id)}" accept="application/pdf" class="${FIELD_FILE_CLS}"></label>`;
     case "image":
-      return `<label class="block">${label}<input type="file" data-field-id="${escapeHtml(f.id)}" accept="image/*" class="${FIELD_FILE_CLS}"></label>`;
-    default: { // text, url, number, date
-      const type = ["url","number","date"].includes(f.type) ? f.type : "text";
-      return `<label class="block">${label}<input type="${type}" data-field-id="${escapeHtml(f.id)}" placeholder="${ph}" class="${FIELD_INPUT_CLS}"></label>`;
+      return `<label class="${wrap}">${label}<input type="file" data-field-id="${escapeHtml(f.id)}" accept="image/*" class="${FIELD_FILE_CLS}"></label>`;
+    default: { // text, email, tel, url, number, date
+      const type = ["email","tel","url","number","date"].includes(f.type) ? f.type : "text";
+      return `<label class="${wrap}">${label}<input type="${type}"${coreAttr} data-field-id="${escapeHtml(f.id)}" placeholder="${ph}" class="${FIELD_INPUT_CLS}"></label>`;
     }
   }
 }
 
+/* ຟອມທັງໝົດ (ລວມຊື່/ອີເມວ/ເບີໂທ) ຖືກສ້າງຈາກການຕັ້ງຄ່າໃນໜ້າ admin — ບໍ່ມີຊ່ອງໃດ hard-code ໃນ HTML */
 function renderCustomFields(){
   document.getElementById("custom-fields").innerHTML =
     (FORM_FIELDS || []).map(customFieldHtml).join("");
+}
+
+function coreInput(key){
+  return form.querySelector(`[data-core="${key}"]`);
 }
 
 let applyingToOpenPosition = true;
@@ -734,7 +796,9 @@ function openApplyModal(dept, position){
     : tr(dept, "name");
   document.getElementById("apply-title").textContent = t("applyFor")(tr(position, "title") || position.title);
   form.reset();
+  
   renderCustomFields();
+  
   document.getElementById("field-department").value = dept.name;
   document.getElementById("field-department-id").value = dept.id || "";
   document.getElementById("field-position").value = position.title;
@@ -743,7 +807,7 @@ function openApplyModal(dept, position){
   setApplyStatus("");
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
-  const firstInput = document.getElementById("field-name");
+  const firstInput = form.querySelector("[data-field-id]");
   if(firstInput) firstInput.focus();
 }
 
@@ -764,9 +828,9 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  const nameVal = document.getElementById("field-name").value.trim();
-  const emailVal = document.getElementById("field-email").value.trim();
-  const phoneVal = document.getElementById("field-phone").value.trim();
+  const nameVal  = (coreInput("name")?.value  || "").trim();
+  const emailVal = (coreInput("email")?.value || "").trim();
+  const phoneVal = (coreInput("phone")?.value || "").trim();
   const departmentVal = document.getElementById("field-department").value;
   const departmentIdVal = document.getElementById("field-department-id").value;
   const positionVal = document.getElementById("field-position").value;
@@ -779,20 +843,27 @@ form.addEventListener("submit", async (e) => {
   }
 
   /* เก็บค่าจากช่องกรอกที่ admin ตั้งค่าไว้ */
+  /* เก็บค่าจากช่องกรอกที่ admin ตั้งค่าไว้ */
   const answers = {};          
   const fileUploads = [];      
   for(const f of (FORM_FIELDS || [])){
     const el = form.querySelector(`[data-field-id="${CSS.escape(f.id)}"]`);
     if(!el) continue;
+    
+    /* 3 ຊ່ອງລະບົບ ຖືກເກັບເປັນ name/email/phone ຢູ່ດ້ານເທິງແລ້ວ ບໍ່ຕ້ອງໃສ່ຊ້ຳໃນ answers */
+    if(f.core) continue;
+
+    const displayLabel = fieldLabel(f);
+    
     if(f.type === "file" || f.type === "image"){
       const file = el.files[0] || null;
       if(f.required && !file){
-        setApplyStatus(t("errNeedFile")(f.label), "err");
+        setApplyStatus(t("errNeedFile")(displayLabel), "err");
         return;
       }
       if(file){
         if(file.size > 5 * 1024 * 1024){
-          setApplyStatus(t("errFileSize")(f.label), "err");
+          setApplyStatus(t("errFileSize")(displayLabel), "err");
           return;
         }
         fileUploads.push({ field: f, file });
@@ -800,11 +871,12 @@ form.addEventListener("submit", async (e) => {
     } else {
       const val = el.value.trim();
       if(f.required && !val){
-        setApplyStatus(t("errNeedField")(f.label), "err");
+        setApplyStatus(t("errNeedField")(displayLabel), "err");
         el.focus();
         return;
       }
-      answers[f.label] = val;
+      // บันทึกเข้าฐานข้อมูลโดยอิงจากชื่อภาษาลาว เพื่อให้แอดมินอ่านง่ายเสมอ
+      answers[fieldKey(f)] = val;
     }
   }
 
@@ -821,7 +893,7 @@ form.addEventListener("submit", async (e) => {
       const fileRef = ref(storage, path);
       await uploadBytes(fileRef, file, { contentType: file.type || "application/pdf" });
       const url = await getDownloadURL(fileRef);
-      attachments.push({ label: field.label, name: file.name, url, path });
+      attachments.push({ label: fieldKey(field), name: file.name, url, path });
     }
 
     const answerLines = Object.entries(answers)
@@ -1019,5 +1091,7 @@ window.addEventListener("hashchange", route);
 
 applyStaticI18n();
 app.innerHTML = `<section class="px-6 py-24 text-center text-slate-400"><div class="mx-auto max-w-6xl">${t("loading")}</div></section>`;
-Promise.all([loadDepartments(), loadBranches(), loadSettings()]).then(route);
-
+Promise.all([loadDepartments(), loadBranches(), loadSettings()]).then(() => {
+  applyStaticI18n(); // เรียกอัปเดตภาษา "หลังจาก" โหลดข้อมูลจากหลังบ้านเสร็จแล้ว
+  route();
+});
