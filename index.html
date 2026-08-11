@@ -88,8 +88,8 @@
   </footer>
 
   <!-- Application modals -->
-  <div id="apply-overlay" class="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-900/70 p-0 backdrop-blur-md sm:items-center sm:p-6" hidden>
-    <div class="relative min-h-screen w-full max-w-lg rounded-none border-0 border-white/60 bg-white p-6 shadow-2xl shadow-indigo-500/20 sm:min-h-0 sm:rounded-3xl sm:border sm:p-8" role="dialog" aria-modal="true" aria-labelledby="apply-title">
+  <div id="apply-overlay" class="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/70 p-0 backdrop-blur-md sm:p-6 sm:py-10" hidden>
+    <div class="relative my-0 min-h-screen w-full max-w-lg rounded-none border-0 border-white/60 bg-white p-6 shadow-2xl shadow-indigo-500/20 sm:my-auto sm:min-h-0 sm:max-w-2xl sm:rounded-3xl sm:border sm:p-8" role="dialog" aria-modal="true" aria-labelledby="apply-title">
       <button class="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-700" id="apply-close" aria-label="Close">✕</button>
 
       <div class="mb-6 pr-10">
@@ -107,11 +107,22 @@
         <!-- ຊ່ອງກອກທັງໝົດ (ລວມ ຊື່ / ອີເມວ / ເບີໂທລະສັບ) ຖືກສ້າງດ້ວຍ app.js
              ຕາມໂຄງສ້າງທີ່ຕັ້ງໄວ້ໃນ Firestore (settings/applicationForm)
              ຈັດການໄດ້ຈາກໜ້າ admin → ແທັບ "ຕັ້ງຄ່າ" ໂດຍບໍ່ຕ້ອງແກ້ໂຄດອີກຕໍ່ໄປ -->
-        <div id="custom-fields" class="grid grid-cols-1 gap-4 sm:grid-cols-2"></div>
+        <!-- ແຈ້ງເຕືອນເມື່ອກູ້ຂໍ້ມູນທີ່ຄ້າງໄວ້ຄືນມາ -->
+        <div id="draft-note" class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700" hidden>
+          <span id="draft-note-text"></span>
+          <button type="button" id="draft-clear" class="shrink-0 rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100"></button>
+        </div>
+
+        <!-- ຫົວຂໍ້ຂັ້ນຕອນ (ສະແດງເມື່ອຟອມຖືກແບ່ງເປັນຫຼາຍໜ້າ) -->
+        <div id="form-steps" class="mb-1 space-y-2" hidden></div>
+
+        <div id="custom-fields"></div>
 
         <p class="text-xs text-slate-400" data-i18n="formNote">ເມື່ອກົດສົ່ງ ຂໍ້ມູນຂອງທ່ານຈະຖືກບັນທຶກເຂົ້າລະບົບ ແລະ ແຈ້ງເຕືອນຝ່າຍບຸກຄະລາກອນໂດຍອັດຕະໂນມັດ</p>
 
-        <div class="flex flex-wrap items-center gap-4 pt-1">
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+          <button type="button" class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:text-indigo-600" id="apply-prev" hidden>← ກັບຄືນ</button>
+          <button type="button" class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/40" id="apply-next" hidden>ຖັດໄປ →</button>
           <button type="submit" class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/40 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50" id="apply-submit" data-i18n="submit">ສົ່ງໃບສະໝັກ</button>
           <span class="text-sm font-semibold text-slate-500" id="apply-status" role="status"></span>
         </div>

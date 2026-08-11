@@ -175,6 +175,7 @@ function normalizeFormFields(fields, legacyCore){
     f.label    = f.label_la;
     f.width    = f.width || "half";
     f.type     = f.type || "text";
+    f.step     = Math.max(1, Math.min(9, Number(f.step) || 1));   // ໜ້າທີ່ຊ່ອງນີ້ຢູ່
   });
   const missing = [];
   CORE_DEFAULTS.forEach(def => {
@@ -186,6 +187,7 @@ function normalizeFormFields(fields, legacyCore){
       found.label_la = found.label_la || found.label || def.label_la;
       found.label_en = found.label_en || def.label_en;
       found.width    = found.width || def.width;
+      found.step     = Math.max(1, Math.min(9, Number(found.step) || 1));
     } else {
       missing.push({
         ...def,
@@ -194,8 +196,12 @@ function normalizeFormFields(fields, legacyCore){
       });
     }
   });
+  missing.forEach(f => { f.step = 1; });
   return [...missing, ...list];
 }
+
+/* ຫົວຂໍ້ຂອງແຕ່ລະໜ້າ (1 ແຖວ = 1 ໜ້າ) ຕັ້ງໄດ້ຈາກໜ້າ admin → ແທັບ "ຕັ້ງຄ່າ" */
+let STEP_TITLES = [];
 
 let FORM_FIELDS = normalizeFormFields(DEFAULT_FORM_FIELDS);
 
@@ -211,6 +217,7 @@ async function loadSettings(){
     }
     if(formSnap.exists()){
       FORM_FIELDS = normalizeFormFields(formSnap.data().fields, formSnap.data().coreFields);
+      STEP_TITLES = Array.isArray(formSnap.data().stepTitles) ? formSnap.data().stepTitles : [];
     }
   } catch (err){
     console.error("โหลดการตั้งค่าไม่สำเร็จ ใช้ค่าตั้งต้นแทน:", err);
@@ -276,7 +283,16 @@ const I18N = {
     navOpen: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
     openingsTitle: "ຕຳແໜ່ງທີ່ກຳລັງເປີດຮັບທັງໝົດ",
     openingsSub: "ລວມຕຳແໜ່ງວ່າງຈາກທຸກສາຂາ/ໜ່ວຍບໍລິການ ແລະ ທຸກຕຳແໜ່ງ ທີ່ທ່ານສາມາດຍື່ນສະໝັກໄດ້ທັນທີ",
-    sendFailed: "ເກີດຂໍ້ຜິດພາດໃນການສົ່ງໃບສະໝັກ ກະລຸນາລອງໃໝ່ອີກຄັ້ງ"
+    sendFailed: "ເກີດຂໍ້ຜິດພາດໃນການສົ່ງໃບສະໝັກ ກະລຸນາລອງໃໝ່ອີກຄັ້ງ",
+    stepOf: (a, b) => `ຂັ້ນຕອນທີ ${a} ຈາກ ${b}`,
+    stepDefault: n => `ຂໍ້ມູນຊຸດທີ ${n}`,
+    nextStep: "ຖັດໄປ →",
+    prevStep: "← ກັບຄືນ",
+    confirmClose: "ທ່ານກຳລັງກອກຟອມຢູ່ ຕ້ອງການປິດແທ້ບໍ່?\n\n(ຂໍ້ມູນທີ່ກອກໄວ້ຈະຖືກເກັບໄວ້ໃນເຄື່ອງຂອງທ່ານ ເປີດຟອມຄືນເມື່ອໃດກໍ່ກອກຕໍ່ໄດ້ ຍົກເວັ້ນໄຟລ໌ແນບທີ່ຕ້ອງເລືອກໃໝ່)",
+    draftRestored: "ກູ້ຂໍ້ມູນທີ່ທ່ານກອກຄ້າງໄວ້ຄືນມາແລ້ວ (ໄຟລ໌ແນບຕ້ອງເລືອກໃໝ່)",
+    draftClear: "ລ້າງ ແລະ ເລີ່ມໃໝ່",
+    draftSaved: "ບັນທຶກຮ່າງໄວ້ໃນເຄື່ອງແລ້ວ",
+    confirmClearDraft: "ລ້າງຂໍ້ມູນທີ່ກອກໄວ້ທັງໝົດ ແລະ ເລີ່ມກອກໃໝ່?"
   },
   en: {
     docTitle: "Careers at SSMI — Apply by department",
@@ -328,7 +344,16 @@ const I18N = {
     navOpen: "Open Positions",
     openingsTitle: "All Open Positions",
     openingsSub: "Browse all available roles across all branches and departments ready for your application.",
-    sendFailed: "Something went wrong while submitting. Please try again."
+    sendFailed: "Something went wrong while submitting. Please try again.",
+    stepOf: (a, b) => `Step ${a} of ${b}`,
+    stepDefault: n => `Section ${n}`,
+    nextStep: "Next →",
+    prevStep: "← Back",
+    confirmClose: "You have unsaved input. Close this form?\n\n(Your answers are kept on this device so you can continue later — attached files must be re-selected.)",
+    draftRestored: "We restored the answers you had already typed (files must be re-attached).",
+    draftClear: "Clear and start over",
+    draftSaved: "Draft saved on this device",
+    confirmClearDraft: "Clear everything you have typed and start over?"
   }
 };
 
@@ -723,6 +748,8 @@ const overlay = document.getElementById("apply-overlay");
 const form = document.getElementById("apply-form");
 const statusEl = document.getElementById("apply-status");
 const submitBtn = document.getElementById("apply-submit");
+const nextBtn = document.getElementById("apply-next");
+const prevBtn = document.getElementById("apply-prev");
 
 function setApplyStatus(msg, kind = "neutral"){
   statusEl.textContent = msg;
@@ -750,7 +777,8 @@ function customFieldHtml(f){
   const req = f.required ? '<em>*</em>' : "";
   const label = `<span class="${FIELD_LABEL_CLS}">${escapeHtml(fieldLabel(f))} ${req}</span>`;
   const ph = escapeHtml(f.placeholder || "");
-  const wrap = `block ${f.width === "full" ? "sm:col-span-2" : ""}`;
+  /* ຂໍ້ຄວາມຍາວ (textarea) ໃຫ້ເຕັມແຖວສະເໝີ ບໍ່ດັ່ງນັ້ນຈະເກີດຊ່ອງຫວ່າງຂ້າງໆ */
+  const wrap = `block ${(f.width === "full" || f.type === "textarea") ? "sm:col-span-2" : ""}`;
   /* ຊ່ອງລະບົບ: ໃສ່ id ເດີມ (field-name/field-email/field-phone) ແລະ autocomplete ໄວ້ນຳ */
   const coreAttr = f.core
     ? ` id="field-${escapeHtml(f.core)}" data-core="${escapeHtml(f.core)}" autocomplete="${
@@ -776,16 +804,211 @@ function customFieldHtml(f){
 }
 
 /* ຟອມທັງໝົດ (ລວມຊື່/ອີເມວ/ເບີໂທ) ຖືກສ້າງຈາກການຕັ້ງຄ່າໃນໜ້າ admin — ບໍ່ມີຊ່ອງໃດ hard-code ໃນ HTML */
-function renderCustomFields(){
-  document.getElementById("custom-fields").innerHTML =
-    (FORM_FIELDS || []).map(customFieldHtml).join("");
+/* ==========================================================================
+   ຟອມແບບຫຼາຍຂັ້ນຕອນ — ແບ່ງໜ້າຕາມຄ່າ step ຂອງແຕ່ລະຊ່ອງ (ຕັ້ງໃນໜ້າ admin)
+   ທຸກໜ້າຖືກ render ໄວ້ໃນ DOM ພ້ອມກັນ ແລ້ວເຊື່ອງໄວ້ ຄ່າທີ່ກອກແລ້ວຈຶ່ງບໍ່ຫາຍ
+   ========================================================================== */
+let STEPS = [];
+let stepIndex = 0;
+
+function buildSteps(){
+  const map = new Map();
+  (FORM_FIELDS || []).forEach(f => {
+    const n = Math.max(1, Math.min(9, Number(f.step) || 1));
+    if(!map.has(n)) map.set(n, []);
+    map.get(n).push(f);
+  });
+  return [...map.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([n, fields], i) => ({
+      n, fields,
+      title: (STEP_TITLES[n - 1] || "").trim() || t("stepDefault")(i + 1)
+    }));
 }
+
+function renderCustomFields(){
+  STEPS = buildSteps();
+  stepIndex = 0;
+  document.getElementById("custom-fields").innerHTML = STEPS.map((st, i) => `
+    <div data-step-panel="${i}" class="grid grid-cols-1 items-start gap-4 sm:grid-cols-2" ${i === 0 ? "" : "hidden"}>
+      ${st.fields.map(customFieldHtml).join("")}
+    </div>`).join("");
+  updateStepUi();
+}
+
+function updateStepUi(){
+  const head = document.getElementById("form-steps");
+  const multi = STEPS.length > 1;
+  head.hidden = !multi;
+  if(multi){
+    head.innerHTML = `
+      <div class="flex items-baseline justify-between gap-3">
+        <h3 class="font-display text-base font-bold text-slate-900">${escapeHtml(STEPS[stepIndex].title)}</h3>
+        <span class="shrink-0 font-mono text-xs font-bold text-indigo-600">${t("stepOf")(stepIndex + 1, STEPS.length)}</span>
+      </div>
+      <div class="flex gap-1.5">
+        ${STEPS.map((s, i) => `<span class="h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+          i <= stepIndex ? "bg-gradient-to-r from-indigo-500 to-purple-500" : "bg-slate-200"}"></span>`).join("")}
+      </div>`;
+  }
+
+  form.querySelectorAll("[data-step-panel]").forEach(p => {
+    p.hidden = Number(p.dataset.stepPanel) !== stepIndex;
+  });
+
+  const isLast = stepIndex >= STEPS.length - 1;
+  prevBtn.hidden = stepIndex === 0;
+  nextBtn.hidden = isLast;
+  nextBtn.textContent = t("nextStep");
+  prevBtn.textContent = t("prevStep");
+  submitBtn.hidden = !isLast;
+}
+
+/* ກວດຄວາມຄົບຖ້ວນສະເພາະຊ່ອງໃນຊຸດທີ່ສົ່ງມາ */
+function validateFields(fields){
+  for(const f of fields){
+    const el = form.querySelector(`[data-field-id="${CSS.escape(f.id)}"]`);
+    if(!el) continue;
+    const lbl = fieldLabel(f);
+    if(f.type === "file" || f.type === "image"){
+      const file = el.files[0] || null;
+      if(f.required && !file) return { msg: t("errNeedFile")(lbl) };
+      if(file && file.size > 5 * 1024 * 1024) return { msg: t("errFileSize")(lbl) };
+    } else {
+      const val = el.value.trim();
+      if(f.required && !val) return { msg: t("errNeedField")(lbl), el };
+    }
+  }
+  return null;
+}
+
+function gotoStep(i){
+  stepIndex = Math.max(0, Math.min(STEPS.length - 1, i));
+  updateStepUi();
+  setApplyStatus("");
+  overlay.scrollTo({ top: 0, behavior: "smooth" });
+  form.querySelector("[data-step-panel]:not([hidden]) [data-field-id]")?.focus();
+}
+
+nextBtn.addEventListener("click", () => {
+  const err = validateFields(STEPS[stepIndex]?.fields || []);
+  if(err){
+    setApplyStatus(err.msg, "err");
+    err.el?.focus();
+    return;
+  }
+  gotoStep(stepIndex + 1);
+});
+
+prevBtn.addEventListener("click", () => gotoStep(stepIndex - 1));
 
 function coreInput(key){
   return form.querySelector(`[data-core="${key}"]`);
 }
 
 let applyingToOpenPosition = true;
+
+/* ==========================================================================
+   ຮ່າງໃບສະໝັກ (draft) — ເກັບໄວ້ໃນເຄື່ອງຜູ້ໃຊ້ດ້ວຍ localStorage
+   ເນື່ອງຈາກຜູ້ສະໝັກບໍ່ຕ້ອງລ໋ອກອິນ ຈຶ່ງເກັບເປັນຮ່າງໃນ browser ຂອງເຂົາເອງ
+   ຂໍ້ຈຳກັດ: ໄຟລ໌ແນບເກັບບໍ່ໄດ້ (browser ບໍ່ອະນຸຍາດ) ຕ້ອງເລືອກໃໝ່
+   ========================================================================== */
+const DRAFT_KEY = "ssmi-apply-draft-v1";
+const DRAFT_TTL = 30 * 24 * 60 * 60 * 1000;   // ເກັບໄວ້ 30 ວັນ
+
+function collectDraftValues(){
+  const values = {};
+  form.querySelectorAll("[data-field-id]").forEach(el => {
+    if(el.type === "file") return;
+    const v = (el.value || "").trim();
+    if(v) values[el.dataset.fieldId] = el.value;
+  });
+  return values;
+}
+
+function hasAnyInput(){
+  return Object.keys(collectDraftValues()).length > 0;
+}
+
+function saveDraft(){
+  try {
+    const values = collectDraftValues();
+    if(!Object.keys(values).length){ localStorage.removeItem(DRAFT_KEY); return; }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), values }));
+    setApplyStatus(t("draftSaved"));
+  } catch (err){ /* ພື້ນທີ່ເຕັມ ຫຼື ປິດ storage ໄວ້ — ຂ້າມໄປ */ }
+}
+
+function readDraft(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+    if(!raw || !raw.values) return null;
+    if(Date.now() - (raw.savedAt || 0) > DRAFT_TTL){ localStorage.removeItem(DRAFT_KEY); return null; }
+    return raw;
+  } catch (err){ return null; }
+}
+
+function clearDraft(){
+  try { localStorage.removeItem(DRAFT_KEY); } catch (err){}
+}
+
+function showDraftNote(show){
+  const note = document.getElementById("draft-note");
+  if(!note) return;
+  note.hidden = !show;
+  if(show){
+    document.getElementById("draft-note-text").textContent = t("draftRestored");
+    document.getElementById("draft-clear").textContent = t("draftClear");
+  }
+}
+
+/* ເອົາຮ່າງທີ່ເກັບໄວ້ມາໃສ່ຄືນໃນຟອມ */
+function restoreDraft(){
+  const draft = readDraft();
+  if(!draft) return false;
+  let filled = 0;
+  Object.entries(draft.values).forEach(([id, val]) => {
+    const el = form.querySelector(`[data-field-id="${CSS.escape(id)}"]`);
+    if(!el || el.type === "file") return;
+    el.value = val;
+    if((el.value || "").trim()) filled++;
+  });
+  return filled > 0;
+}
+
+let draftTimer = null;
+form.addEventListener("input", () => {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 600);
+});
+form.addEventListener("change", saveDraft);
+
+document.getElementById("draft-clear").addEventListener("click", () => {
+  if(!confirm(t("confirmClearDraft"))) return;
+  clearDraft();
+  form.reset();
+  renderCustomFields();
+  showDraftNote(false);
+  setApplyStatus("");
+});
+
+/* ຢືນຢັນກ່ອນປິດ ຖ້າມີການກອກຂໍ້ມູນແລ້ວ */
+function requestCloseApplyModal(){
+  if(hasAnyInput()){
+    saveDraft();
+    if(!confirm(t("confirmClose"))) return;
+  }
+  closeApplyModal();
+}
+
+/* ກັນປິດແທັບ/refresh ຕອນກຳລັງກອກ */
+window.addEventListener("beforeunload", e => {
+  if(!overlay.hidden && hasAnyInput()){
+    saveDraft();
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
 
 function openApplyModal(dept, position){
   applyingToOpenPosition = !!position.id && isPositionOpenInBranch(currentBranch(), position);
@@ -805,9 +1028,11 @@ function openApplyModal(dept, position){
   document.getElementById("field-branch").value = branchName;
   document.getElementById("field-branch-id").value = branch?.id || "";
   setApplyStatus("");
+  showDraftNote(restoreDraft());
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
-  const firstInput = form.querySelector("[data-field-id]");
+  overlay.scrollTop = 0;
+  const firstInput = form.querySelector("[data-step-panel]:not([hidden]) [data-field-id]");
   if(firstInput) firstInput.focus();
 }
 
@@ -816,9 +1041,9 @@ function closeApplyModal(){
   document.body.style.overflow = "";
 }
 
-document.getElementById("apply-close").addEventListener("click", closeApplyModal);
-overlay.addEventListener("click", e => { if(e.target === overlay) closeApplyModal(); });
-document.addEventListener("keydown", e => { if(e.key === "Escape" && !overlay.hidden) closeApplyModal(); });
+document.getElementById("apply-close").addEventListener("click", requestCloseApplyModal);
+overlay.addEventListener("click", e => { if(e.target === overlay) requestCloseApplyModal(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape" && !overlay.hidden) requestCloseApplyModal(); });
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -842,6 +1067,17 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
+  /* ກວດທຸກຂັ້ນຕອນກ່ອນສົ່ງ — ຖ້າຂາດຊ່ອງໃດ ໃຫ້ພາກັບໄປໜ້ານັ້ນ */
+  for(let i = 0; i < STEPS.length; i++){
+    const err = validateFields(STEPS[i].fields);
+    if(err){
+      if(i !== stepIndex) gotoStep(i);
+      setApplyStatus(err.msg, "err");
+      err.el?.focus();
+      return;
+    }
+  }
+
   /* เก็บค่าจากช่องกรอกที่ admin ตั้งค่าไว้ */
   /* เก็บค่าจากช่องกรอกที่ admin ตั้งค่าไว้ */
   const answers = {};          
@@ -853,30 +1089,12 @@ form.addEventListener("submit", async (e) => {
     /* 3 ຊ່ອງລະບົບ ຖືກເກັບເປັນ name/email/phone ຢູ່ດ້ານເທິງແລ້ວ ບໍ່ຕ້ອງໃສ່ຊ້ຳໃນ answers */
     if(f.core) continue;
 
-    const displayLabel = fieldLabel(f);
-    
     if(f.type === "file" || f.type === "image"){
       const file = el.files[0] || null;
-      if(f.required && !file){
-        setApplyStatus(t("errNeedFile")(displayLabel), "err");
-        return;
-      }
-      if(file){
-        if(file.size > 5 * 1024 * 1024){
-          setApplyStatus(t("errFileSize")(displayLabel), "err");
-          return;
-        }
-        fileUploads.push({ field: f, file });
-      }
+      if(file) fileUploads.push({ field: f, file });
     } else {
-      const val = el.value.trim();
-      if(f.required && !val){
-        setApplyStatus(t("errNeedField")(displayLabel), "err");
-        el.focus();
-        return;
-      }
       // บันทึกเข้าฐานข้อมูลโดยอิงจากชื่อภาษาลาว เพื่อให้แอดมินอ่านง่ายเสมอ
-      answers[fieldKey(f)] = val;
+      answers[fieldKey(f)] = el.value.trim();
     }
   }
 
@@ -934,6 +1152,8 @@ form.addEventListener("submit", async (e) => {
     });
 
     setApplyStatus(t("sent"), "ok");
+    clearDraft();
+    showDraftNote(false);
     form.reset();
     setTimeout(closeApplyModal, 1800);
   } catch (err){

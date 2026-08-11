@@ -937,6 +937,7 @@ function normalizeFormFields(fields, legacyCore){
     f.label    = f.label_la;
     f.width    = f.width || "half";
     f.type     = f.type || "text";
+    f.step     = Math.max(1, Math.min(9, Number(f.step) || 1));
   });
   const missing = [];
   CORE_DEFAULTS.forEach(def => {
@@ -948,6 +949,7 @@ function normalizeFormFields(fields, legacyCore){
       found.label_la = found.label_la || found.label || def.label_la;
       found.label_en = found.label_en || def.label_en;
       found.width    = found.width || def.width;
+      found.step     = Math.max(1, Math.min(9, Number(found.step) || 1));
     } else {
       missing.push({
         ...def,
@@ -956,8 +958,11 @@ function normalizeFormFields(fields, legacyCore){
       });
     }
   });
+  missing.forEach(f => { f.step = 1; });
   return [...missing, ...list];
 }
+
+let stepTitles = [];   // ຫົວຂໍ້ຂອງແຕ່ລະໜ້າ (1 ແຖວ = 1 ໜ້າ)
 
 async function loadSettings(){
   if(FIREBASE_NOT_CONFIGURED) return;
@@ -975,6 +980,10 @@ async function loadSettings(){
     formFields = formSnap.exists()
       ? normalizeFormFields(formSnap.data().fields, formSnap.data().coreFields)
       : normalizeFormFields(structuredClone(DEFAULT_FORM_FIELDS));
+
+    stepTitles = (formSnap.exists() && Array.isArray(formSnap.data().stepTitles))
+      ? formSnap.data().stepTitles : [];
+    $("step-titles").value = stepTitles.join("\n");
 
     renderFormFields();
   } catch (err){
@@ -1045,6 +1054,14 @@ function fieldBlockHtml(f, idx, total){
         <label class="field">
           <span>ປະເພດຊ່ອງ${isCore ? " (ຊ່ອງລະບົບ ປ່ຽນບໍ່ໄດ້)" : ""}</span>
           <select class="ff-type" ${isCore ? "disabled" : ""}>${typeOpts}</select>
+        </label>
+        <label class="field">
+          <span>ຢູ່ໜ້າທີ (ຂັ້ນຕອນ)</span>
+          <select class="ff-step">
+            ${[1,2,3,4,5,6,7,8,9].map(n =>
+              `<option value="${n}" ${Number(f.step || 1) === n ? "selected" : ""}>ໜ້າທີ ${n}${
+                (stepTitles[n-1] || "").trim() ? " — " + escapeHtml(stepTitles[n-1].trim()) : ""}</option>`).join("")}
+          </select>
         </label>
         <label class="field">
           <span>ຄວາມກວ້າງໃນຟອມ</span>
@@ -1126,6 +1143,7 @@ function collectFormFieldsFromDom(){
       type: existing.core ? existing.type : block.querySelector(".ff-type").value,
       required: existing.core ? true : block.querySelector(".ff-required").checked,
       width: block.querySelector(".ff-width").value,
+      step: Math.max(1, Math.min(9, Number(block.querySelector(".ff-step").value) || 1)),
       placeholder: block.querySelector(".ff-placeholder").value.trim(),
       options: block.querySelector(".ff-options").value
         .split("\n").map(s => s.trim()).filter(Boolean)
@@ -1133,12 +1151,19 @@ function collectFormFieldsFromDom(){
   });
 }
 
+$("step-titles").addEventListener("input", () => {
+  stepTitles = $("step-titles").value.split("\n").map(x => x.trim());
+  collectFormFieldsFromDom();
+  renderFormFields();
+});
+
 $("add-form-field-btn").addEventListener("click", () => {
   collectFormFieldsFromDom();
   formFields.push({
     id: "f" + Date.now().toString(36),
     core: null, label_la: "", label_en: "", label: "",
-    type: "text", required: false, width: "half", placeholder: "", options: []
+    type: "text", required: false, width: "half", placeholder: "", options: [],
+    step: Math.max(1, ...formFields.map(f => Number(f.step) || 1), 1)
   });
   renderFormFields();
   const blocks = formFieldsContainer.querySelectorAll(".ff-label-la");
@@ -1159,8 +1184,13 @@ $("save-form-fields-btn").addEventListener("click", async () => {
     return;
   }
   try {
-    await setDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"), { fields: formFields }, { merge: true });
-    setStatus($("form-fields-status"), `ບັນທຶກຟອມຮຽບຮ້ອຍ (${formFields.length} ຊ່ອງ) — ໜ້າເວັບສາທາລະນະໃຊ້ຟອມໃໝ່ທັນທີ`, "ok");
+    stepTitles = $("step-titles").value.split("\n").map(x => x.trim());
+    while(stepTitles.length && !stepTitles[stepTitles.length - 1]) stepTitles.pop();
+    await setDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"),
+      { fields: formFields, stepTitles }, { merge: true });
+    const stepCount = new Set(formFields.map(f => Number(f.step) || 1)).size;
+    setStatus($("form-fields-status"),
+      `ບັນທຶກຟອມຮຽບຮ້ອຍ (${formFields.length} ຊ່ອງ · ${stepCount} ຂັ້ນຕອນ) — ໜ້າເວັບສາທາລະນະໃຊ້ຟອມໃໝ່ທັນທີ`, "ok");
     renderFormFields();
   } catch (err){
     console.error(err);
