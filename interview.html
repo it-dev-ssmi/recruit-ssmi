@@ -22,6 +22,9 @@
 </head>
 <body>
 
+  <!-- ກ່ອງແຈ້ງ error ຂອງໜ້ານີ້ (ຊ່ວຍຫາສາເຫດເວລາຈໍຂາວ) -->
+  <div id="fatal-error" style="display:none;margin:16px;padding:16px;border:1px solid #fca5a5;background:#fef2f2;color:#991b1b;border-radius:12px;font-family:monospace;font-size:13px;white-space:pre-wrap;word-break:break-word"></div>
+
   <header class="site-header">
     <div class="wrap header-row">
       <a class="brand" href="index.html">
@@ -38,7 +41,7 @@
   </header>
 
   <!-- ================= LOGIN VIEW ================= -->
-  <main id="login-view" hidden>
+  <main id="login-view">
     <section class="admin-login">
       <div class="login-card">
         <span class="dept-code">INTERVIEWER</span>
@@ -109,6 +112,7 @@
         </div>
 
         <div id="apps-list" class="apps-list">
+          <!-- rendered by interview.js -->
         </div>
 
       </div>

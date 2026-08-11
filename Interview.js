@@ -24,6 +24,16 @@ const FIREBASE_NOT_CONFIGURED = firebaseConfig.apiKey === "YOUR_API_KEY";
 document.getElementById("year").textContent = new Date().getFullYear();
 
 const $ = id => document.getElementById(id);
+
+/* ດັກຂໍ້ຜິດພາດທຸກຢ່າງ ແລ້ວສະແດງໃຫ້ເຫັນເທິງໜ້າຈໍ ແທນທີ່ຈະເປັນຈໍຂາວ */
+function showFatal(msg){
+  const box = document.getElementById("fatal-error");
+  if(!box) return;
+  box.style.display = "block";
+  box.textContent = "ເກີດຂໍ້ຜິດພາດໃນໜ້ານີ້:\n" + msg;
+}
+window.addEventListener("error", e => showFatal(e.message + "\n" + (e.filename || "") + ":" + (e.lineno || "")));
+window.addEventListener("unhandledrejection", e => showFatal("Promise: " + (e.reason?.message || e.reason)));
 function escapeHtml(str){
   return String(str ?? "").replace(/[&<>"']/g, s => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -48,6 +58,7 @@ if(FIREBASE_NOT_CONFIGURED){
 
 onAuthStateChanged(auth, async user => {
   if(FIREBASE_NOT_CONFIGURED) return;
+  try {
   if(user){
     loginView.hidden = true;
     viewerView.hidden = false;
@@ -69,6 +80,15 @@ onAuthStateChanged(auth, async user => {
     viewerView.hidden = true;
     logoutBtn.hidden = true;
   }
+  } catch (err){
+    console.error(err);
+    showFatal(err.message);
+    loginView.hidden = false;
+  }
+}, err => {
+  console.error(err);
+  showFatal("Auth: " + err.message);
+  loginView.hidden = false;
 });
 
 $("login-form").addEventListener("submit", async e => {
