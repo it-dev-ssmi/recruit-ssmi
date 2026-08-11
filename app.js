@@ -292,7 +292,15 @@ const I18N = {
     draftRestored: "ກູ້ຂໍ້ມູນທີ່ທ່ານກອກຄ້າງໄວ້ຄືນມາແລ້ວ (ໄຟລ໌ແນບຕ້ອງເລືອກໃໝ່)",
     draftClear: "ລ້າງ ແລະ ເລີ່ມໃໝ່",
     draftSaved: "ບັນທຶກຮ່າງໄວ້ໃນເຄື່ອງແລ້ວ",
-    confirmClearDraft: "ລ້າງຂໍ້ມູນທີ່ກອກໄວ້ທັງໝົດ ແລະ ເລີ່ມກອກໃໝ່?"
+    confirmClearDraft: "ລ້າງຂໍ້ມູນທີ່ກອກໄວ້ທັງໝົດ ແລະ ເລີ່ມກອກໃໝ່?",
+    sendingTitle: "ກຳລັງສົ່ງໃບສະໝັກຂອງທ່ານ",
+    sendingSub: "ກະລຸນາຢ່າປິດໜ້ານີ້ ຫຼື ກົດຍ້ອນກັບ ຈົນກວ່າຈະສຳເລັດ",
+    uploadingFile: (i, n, name) => `ກຳລັງອັບໂຫຼດໄຟລ໌ແນບ ${i}/${n} — ${name}`,
+    savingData: "ກຳລັງບັນທຶກຂໍ້ມູນເຂົ້າລະບົບ...",
+    doneTitle: "ສົ່ງໃບສະໝັກສຳເລັດແລ້ວ",
+    doneSub: "ຫວັງວ່າຈະໄດ້ຮ່ວມງານກັນເດີ້ 🎉",
+    doneNote: "ຝ່າຍບຸກຄະລາກອນໄດ້ຮັບໃບສະໝັກຂອງທ່ານແລ້ວ ແລະ ຈະຕິດຕໍ່ກັບຄືນທາງອີເມວ ຫຼື ເບີໂທທີ່ທ່ານໃຫ້ໄວ້",
+    doneBtn: "ຮັບຊາບ"
   },
   en: {
     docTitle: "Careers at SSMI — Apply by department",
@@ -353,7 +361,15 @@ const I18N = {
     draftRestored: "We restored the answers you had already typed (files must be re-attached).",
     draftClear: "Clear and start over",
     draftSaved: "Draft saved on this device",
-    confirmClearDraft: "Clear everything you have typed and start over?"
+    confirmClearDraft: "Clear everything you have typed and start over?",
+    sendingTitle: "Sending your application",
+    sendingSub: "Please keep this page open until it finishes",
+    uploadingFile: (i, n, name) => `Uploading attachment ${i}/${n} — ${name}`,
+    savingData: "Saving your details...",
+    doneTitle: "Application sent",
+    doneSub: "We hope to work with you soon! 🎉",
+    doneNote: "Our HR team has received your application and will get back to you by email or phone.",
+    doneBtn: "Got it"
   }
 };
 
@@ -906,6 +922,50 @@ function coreInput(key){
   return form.querySelector(`[data-core="${key}"]`);
 }
 
+/* ==========================================================================
+   ໜ້າຈໍ "ກຳລັງສົ່ງ" / "ສົ່ງສຳເລັດ"
+   ກັນຜູ້ສະໝັກປິດໜ້າຕ່າງລະຫວ່າງທີ່ຂໍ້ມູນຍັງສົ່ງບໍ່ທັນຮອດ
+   ========================================================================== */
+const submitOverlay = document.getElementById("submit-overlay");
+let isSending = false;
+
+function showSending(){
+  isSending = true;
+  document.getElementById("submit-sending").hidden = false;
+  document.getElementById("submit-done").hidden = true;
+  document.getElementById("submit-sending-title").textContent = t("sendingTitle");
+  document.getElementById("submit-sending-sub").textContent = t("sendingSub");
+  submitOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function setSendingStep(msg){
+  const el = document.getElementById("submit-sending-sub");
+  if(el) el.textContent = msg;
+}
+
+function showDone(){
+  isSending = false;
+  document.getElementById("submit-sending").hidden = true;
+  const done = document.getElementById("submit-done");
+  done.hidden = false;
+  document.getElementById("submit-done-title").textContent = t("doneTitle");
+  document.getElementById("submit-done-sub").textContent = t("doneSub");
+  document.getElementById("submit-done-note").textContent = t("doneNote");
+  document.getElementById("submit-done-btn").textContent = t("doneBtn");
+  submitOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  document.getElementById("submit-done-btn").focus();
+}
+
+function hideSubmitOverlay(){
+  isSending = false;
+  submitOverlay.hidden = true;
+  document.body.style.overflow = "";
+}
+
+document.getElementById("submit-done-btn").addEventListener("click", hideSubmitOverlay);
+
 let applyingToOpenPosition = true;
 
 /* ==========================================================================
@@ -994,6 +1054,7 @@ document.getElementById("draft-clear").addEventListener("click", () => {
 
 /* ຢືນຢັນກ່ອນປິດ ຖ້າມີການກອກຂໍ້ມູນແລ້ວ */
 function requestCloseApplyModal(){
+  if(isSending) return;   // ກຳລັງສົ່ງຢູ່ ປິດບໍ່ໄດ້
   if(hasAnyInput()){
     saveDraft();
     if(!confirm(t("confirmClose"))) return;
@@ -1003,7 +1064,7 @@ function requestCloseApplyModal(){
 
 /* ກັນປິດແທັບ/refresh ຕອນກຳລັງກອກ */
 window.addEventListener("beforeunload", e => {
-  if(!overlay.hidden && hasAnyInput()){
+  if(isSending || (!overlay.hidden && hasAnyInput())){
     saveDraft();
     e.preventDefault();
     e.returnValue = "";
@@ -1100,12 +1161,15 @@ form.addEventListener("submit", async (e) => {
 
   submitBtn.disabled = true;
   setApplyStatus(t("sending"));
+  showSending();
 
   try {
     const appRef = doc(collection(db, APPLICATIONS_COLLECTION));
 
     const attachments = [];
+    let uploaded = 0;
     for(const { field, file } of fileUploads){
+      setSendingStep(t("uploadingFile")(++uploaded, fileUploads.length, file.name));
       const folder = field.type === "image" ? ATTACHMENTS_STORAGE_FOLDER : RESUME_STORAGE_FOLDER;
       const path = `${folder}/${appRef.id}/${field.id}-${file.name}`;
       const fileRef = ref(storage, path);
@@ -1133,6 +1197,7 @@ form.addEventListener("submit", async (e) => {
       `ข้อมูลเพิ่มเติม:\n${answerLines || "-"}\n\n` +
       `ไฟล์แนบ:\n${attachmentLines}`;
 
+    setSendingStep(t("savingData"));
     await setDoc(appRef, {
       department: departmentVal,
       departmentId: departmentIdVal,
@@ -1151,13 +1216,17 @@ form.addEventListener("submit", async (e) => {
       message: { subject, text: emailText }
     });
 
-    setApplyStatus(t("sent"), "ok");
+    setApplyStatus("");
     clearDraft();
     showDraftNote(false);
     form.reset();
-    setTimeout(closeApplyModal, 1800);
+    renderCustomFields();     // ກັບໄປໜ້າທຳອິດຂອງຟອມ ພ້ອມສຳລັບຄັ້ງຕໍ່ໄປ
+    closeApplyModal();
+    showDone();               // 🎉 ຫວັງວ່າຈະໄດ້ຮ່ວມງານກັນ
   } catch (err){
     console.error(err);
+    hideSubmitOverlay();
+    document.body.style.overflow = "hidden";   // ຟອມຍັງເປີດຢູ່
     setApplyStatus(t("sendFailed"), "err");
   } finally {
     submitBtn.disabled = false;
