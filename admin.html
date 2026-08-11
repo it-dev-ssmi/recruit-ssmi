@@ -151,6 +151,30 @@
               <button class="btn btn--ghost" id="reload-apps-btn">ໂຫຼດຂໍ້ມູນໃໝ່</button>
               <span class="form-status" id="apps-status" role="status"></span>
             </div>
+
+            <!-- ຕົວກອງໃບສະໝັກ -->
+            <div class="field-grid" id="apps-filter-bar">
+              <label class="field">
+                <span>ສາຂາ</span>
+                <select id="filter-branch"><option value="">ທຸກສາຂາ</option></select>
+              </label>
+              <label class="field">
+                <span>ພະແນກ</span>
+                <select id="filter-dept"><option value="">ທຸກພະແນກ</option></select>
+              </label>
+              <label class="field">
+                <span>ສະຖານະ</span>
+                <select id="filter-status"><option value="">ທຸກສະຖານະ</option></select>
+              </label>
+              <label class="field">
+                <span>ຄົ້ນຫາ (ຊື່ / ອີເມວ / ເບີໂທ / ຕຳແໜ່ງ)</span>
+                <input type="search" id="filter-search" placeholder="ພິມເພື່ອຄົ້ນຫາ...">
+              </label>
+            </div>
+            <div class="panel-toolbar">
+              <span class="form-status" id="apps-filter-summary" role="status"></span>
+              <button type="button" class="btn btn--ghost btn--sm" id="clear-filters-btn">ລ້າງຕົວກອງ</button>
+            </div>
             <div id="apps-list" class="apps-list">
               <!-- rendered by admin.js -->
             </div>

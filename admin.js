@@ -691,6 +691,68 @@ const STATUS_OPTIONS = [
   { value: "rejected",    label: "ບໍ່ຜ່ານ" }
 ];
 let applications = [];
+const NO_BRANCH = "__none__";   // ໃບສະໝັກເກົ່າທີ່ບໍ່ໄດ້ບັນທຶກສາຂາໄວ້
+const appFilters = { branch: "", dept: "", status: "", q: "" };
+
+/* ຊື່ສາຂາ / ພະແນກ ຂອງໃບສະໝັກ (ຮອງຮັບຂໍ້ມູນເກົ່າທີ່ບໍ່ມີຟິວ branch) */
+function appBranchKey(a){ return (a.branch || "").trim() || NO_BRANCH; }
+function appBranchLabel(a){ return (a.branch || "").trim() || "ບໍ່ໄດ້ລະບຸສາຂາ"; }
+
+function filteredApplications(){
+  const q = appFilters.q.trim().toLowerCase();
+  return applications.filter(a => {
+    if(appFilters.branch && appBranchKey(a) !== appFilters.branch) return false;
+    if(appFilters.dept && (a.department || "") !== appFilters.dept) return false;
+    if(appFilters.status && (a.status || "new") !== appFilters.status) return false;
+    if(q){
+      const hay = [a.name, a.email, a.phone, a.position, a.department, a.branch]
+        .filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ເຕີມຕົວເລືອກໃນຕົວກອງ ຈາກຂໍ້ມູນຈິງທີ່ມີຢູ່ + ລາຍຊື່ສາຂາໃນລະບົບ */
+function renderAppFilterOptions(){
+  const branchCounts = new Map();
+  const deptCounts = new Map();
+  applications.forEach(a => {
+    const bk = appBranchKey(a);
+    branchCounts.set(bk, (branchCounts.get(bk) || 0) + 1);
+    const d = a.department || "";
+    if(d) deptCounts.set(d, (deptCounts.get(d) || 0) + 1);
+  });
+  /* ສາຂາທີ່ມີໃນລະບົບ ແຕ່ຍັງບໍ່ມີໃບສະໝັກ ກໍ່ໃຫ້ເລືອກໄດ້ (ຈະສະແດງ 0) */
+  (branches || []).forEach(b => {
+    if(b.name && !branchCounts.has(b.name)) branchCounts.set(b.name, 0);
+  });
+
+  const branchSel = $("filter-branch");
+  branchSel.innerHTML = `<option value="">ທຸກສາຂາ (${applications.length})</option>` +
+    [...branchCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, n]) => {
+        const label = key === NO_BRANCH ? "ບໍ່ໄດ້ລະບຸສາຂາ" : key;
+        return `<option value="${escapeHtml(key)}">${escapeHtml(label)} (${n})</option>`;
+      }).join("");
+  branchSel.value = appFilters.branch;
+
+  const deptSel = $("filter-dept");
+  deptSel.innerHTML = `<option value="">ທຸກພະແນກ</option>` +
+    [...deptCounts.entries()].sort((a, b) => b[1] - a[1])
+      .map(([key, n]) => `<option value="${escapeHtml(key)}">${escapeHtml(key)} (${n})</option>`).join("");
+  deptSel.value = appFilters.dept;
+
+  const statusSel = $("filter-status");
+  statusSel.innerHTML = `<option value="">ທຸກສະຖານະ</option>` +
+    STATUS_OPTIONS.map(o => {
+      const n = applications.filter(a => (a.status || "new") === o.value).length;
+      return `<option value="${o.value}">${o.label} (${n})</option>`;
+    }).join("");
+  statusSel.value = appFilters.status;
+}
+
 
 async function loadApplications(){
   const listEl = $("apps-list");
@@ -699,6 +761,7 @@ async function loadApplications(){
     const snap = await getDocs(query(collection(db, APPLICATIONS_COLLECTION), orderBy("submittedAt", "desc")));
     applications = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
     $("app-count").textContent = applications.length ? `(${applications.length})` : "";
+    renderAppFilterOptions();
     renderApplications();
   } catch (err){
     console.error(err);
@@ -739,11 +802,23 @@ function renderAttachmentLinks(a){
 
 function renderApplications(){
   const listEl = $("apps-list");
+  const list = filteredApplications();
+  const hasFilter = appFilters.branch || appFilters.dept || appFilters.status || appFilters.q.trim();
+
+  $("apps-filter-summary").textContent = applications.length
+    ? `ສະແດງ ${list.length} ຈາກທັງໝົດ ${applications.length} ໃບສະໝັກ`
+    : "";
+
   if(!applications.length){
     listEl.innerHTML = `<div class="admin-empty"><p>ຍັງບໍ່ມີໃບສະໝັກເຂົ້າມາ</p></div>`;
     return;
   }
-  listEl.innerHTML = applications.map(a => `
+  if(!list.length){
+    listEl.innerHTML = `<div class="admin-empty"><p>ບໍ່ພົບໃບສະໝັກທີ່ກົງກັບຕົວກອງ</p>
+      ${hasFilter ? `<p class="admin-empty-sub">ລອງກົດ "ລ້າງຕົວກອງ" ເພື່ອເບິ່ງທັງໝົດ</p>` : ""}</div>`;
+    return;
+  }
+  listEl.innerHTML = list.map(a => `
     <div class="app-card" data-docid="${escapeHtml(a.docId)}">
       <div class="app-card-main">
         <div class="app-card-top">
@@ -753,6 +828,7 @@ function renderApplications(){
         <p class="app-position">${escapeHtml(a.position)} — ${escapeHtml(a.department)}
           ${a.advanceProfile ? '<span class="app-status" style="background:var(--brass-soft);color:var(--gold-text);margin-left:8px">ຝາກປະຫວັດລ່ວງໜ້າ</span>' : ""}</p>
         <div class="app-meta">
+          <span><b>🏢 ສາຂາ: ${escapeHtml(appBranchLabel(a))}</b></span>
           <span>📧 ${escapeHtml(a.email)}</span>
           <span>📞 ${escapeHtml(a.phone)}</span>
           <span>🕐 ${formatDate(a.submittedAt)}</span>
@@ -781,6 +857,7 @@ function renderApplications(){
         setStatus($("apps-status"), "ອັບເດດສະຖານະຮຽບຮ້ອຍ", "ok");
         const a = applications.find(x => x.docId === docId);
         if(a) a.status = e.target.value;
+        renderAppFilterOptions();
         renderApplications();
       } catch (err){
         console.error(err);
@@ -811,6 +888,18 @@ function renderApplications(){
 }
 
 $("reload-apps-btn").addEventListener("click", loadApplications);
+
+/* ---------- ຕົວກອງໃບສະໝັກ ---------- */
+$("filter-branch").addEventListener("change", e => { appFilters.branch = e.target.value; renderApplications(); });
+$("filter-dept").addEventListener("change",   e => { appFilters.dept   = e.target.value; renderApplications(); });
+$("filter-status").addEventListener("change", e => { appFilters.status = e.target.value; renderApplications(); });
+$("filter-search").addEventListener("input",  e => { appFilters.q      = e.target.value; renderApplications(); });
+$("clear-filters-btn").addEventListener("click", () => {
+  appFilters.branch = appFilters.dept = appFilters.status = appFilters.q = "";
+  $("filter-search").value = "";
+  renderAppFilterOptions();
+  renderApplications();
+});
 
 /* ==========================================================================
    SETTINGS — อีเมลแจ้งเตือน HR + ตัวสร้างฟอร์มสมัครงาน
