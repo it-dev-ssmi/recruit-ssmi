@@ -5,7 +5,7 @@
    ========================================================================== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, setDoc, query, orderBy, serverTimestamp
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, query, orderBy, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -349,14 +349,24 @@ async function loadCriteria(){
   }));
 }
 
-async function loadEvaluations(){
-  try {
-    const snap = await getDocs(collection(db, EVALUATIONS_COLLECTION));
-    evaluations = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-  } catch (err){
-    console.warn("ໂຫຼດຄະແນນບໍ່ໄດ້:", err);
-    evaluations = [];
-  }
+function loadEvaluations(){
+  return new Promise((resolve) => {
+    onSnapshot(collection(db, EVALUATIONS_COLLECTION), (snap) => {
+      evaluations = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+      
+      if (applications.length > 0) {
+        // อัปเดตตารางจัดอันดับ
+        renderScoreboard(); 
+        
+        // อัปเดตคะแนนคนอื่นในหน้ารายชื่อ โดยไม่กระทบสิ่งที่กำลังพิมพ์
+        updateLiveEvaluations(); 
+      }
+      resolve(); 
+    }, (err) => {
+      console.warn("ໂຫຼດຄະແນນບໍ່ໄດ້ (Real-time):", err);
+      resolve(); 
+    });
+  });
 }
 
 const evalId = appId => `${appId}__${ME.uid}`;
@@ -456,25 +466,57 @@ async function saveEvaluation(appId, box){
   const btn = box.querySelector("[data-eval-save]");
   const scores = {};
   let given = 0;
+  let totalScore = 0; // เพิ่มตัวแปรสำหรับรวมคะแนนเพื่อหาค่าเฉลี่ย
 
   criteria.forEach(c => {
     const active = box.querySelector(`.score-chip[data-crit="${CSS.escape(c.id)}"].is-active`);
     const comment = box.querySelector(`[data-crit-comment="${CSS.escape(c.id)}"]`)?.value.trim() || "";
     if(active || comment){
+      const scoreVal = active ? Number(active.dataset.score) : null;
       scores[c.id] = {
         label: c.label_la,
-        score: active ? Number(active.dataset.score) : null,
+        score: scoreVal,
         comment
       };
-      if(active) given++;
+      if(active) {
+        given++;
+        totalScore += scoreVal;
+      }
     }
   });
 
   if(!given){
-    statusEl.textContent = "ກະລຸນາໃຫ້ຄະແນນຢ່າງໜ້ອຍ 1 ຫົວຂໍ້";
+    Swal.fire({
+      icon: 'warning',
+      title: 'ແຈ້ງເຕືອນ',
+      text: 'ກະລຸນາໃຫ້ຄະແນນຢ່າງໜ້ອຍ 1 ຫົວຂໍ້',
+      confirmButtonColor: '#4f46e5'
+    });
     return;
   }
 
+  // คำนวณคะแนนเฉลี่ยก่อนบันทึก
+  const avgScore = totalScore / given;
+
+  // เด้ง Popup แจ้งเตือนด้วย SweetAlert2
+  const result = await Swal.fire({
+    icon: 'success',
+    title: 'ຢືນຢັນການໃຫ້ຄະແນນ?',
+    html: `ຄະແນນສະເລ່ຍຂອງທ່ານຄື: <b style="color:#4f46e5; font-size:18px;">${avgScore.toFixed(2)}/5</b><br>ທ່ານຕ້ອງການບັນທຶກຄະແນນນີ້ເລີຍຫຼືບໍ່?`,
+    showCancelButton: true,
+    confirmButtonColor: '#4f46e5',
+    cancelButtonColor: '#94a3b8',
+    confirmButtonText: 'ຢືນຢັນ (ບັນທຶກ)',
+    cancelButtonText: 'ແກ້ໄຂອີກຄັ້ງ',
+    reverseButtons: true // สลับปุ่มยืนยันไว้ขวามือให้คุ้นชิน
+  });
+
+  // ถ้าผู้ใช้กด "แก้ไขอีกครั้ง" (Cancel) ให้หยุดการทำงาน
+  if (!result.isConfirmed) {
+    return;
+  }
+
+  // ถ้ากดยืนยัน เริ่มกระบวนการบันทึกลง Firebase
   const app = applications.find(a => a.docId === appId);
   const payload = {
     applicationId: appId,
@@ -491,18 +533,43 @@ async function saveEvaluation(appId, box){
 
   btn.disabled = true;
   statusEl.textContent = "ກຳລັງບັນທຶກ...";
+  
   try {
+    // บันทึกลงฐานข้อมูล[cite: 2]
     await setDoc(doc(db, EVALUATIONS_COLLECTION, evalId(appId)), payload);
-    /* ອັບເດດໃນໜ່ວຍຄວາມຈຳ ເພື່ອບໍ່ຕ້ອງໂຫຼດໃໝ່ທັງໝົດ */
+    
+    // อัปเดตข้อมูลในหน่วยความจำ
     const idx = evaluations.findIndex(e => e.docId === evalId(appId));
     const local = { docId: evalId(appId), ...payload, updatedAt: new Date() };
     if(idx >= 0) evaluations[idx] = local; else evaluations.push(local);
 
-    const avg = evalAverage(local);
-    statusEl.textContent = `ບັນທຶກແລ້ວ — ຄະແນນຂອງທ່ານ ${fmt(avg)}/5`;
+    statusEl.textContent = `ບັນທຶກແລ້ວ — ຄະແນນຂອງທ່ານ ${fmt(avgScore)}/5`;
+    
+    // อัปเดตตารางคะแนนแบบ Real-time (ฟังก์ชันที่เพิ่มไปก่อนหน้านี้)
+    if (typeof updateLiveEvaluations === "function") {
+        updateLiveEvaluations();
+    }
     renderScoreboard();
+
+    // ปิดแท็บ (<details>) ทันทีเมื่อบันทึกเสร็จ
+    const detailsEl = box.closest("details");
+    if (detailsEl) {
+      detailsEl.open = false;
+    }
+
+    // (Optional) Popup เล็กๆ แจ้งเตือนมุมขวาบนว่าบันทึกสำเร็จจริงๆ
+    Swal.fire({
+      icon: 'success',
+      title: 'ບັນທຶກສຳເລັດ',
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2000
+    });
+
   } catch (err){
     console.error(err);
+    Swal.fire({ icon: 'error', title: 'ຜິດພາດ', text: 'ບໍ່ສາມາດບັນທຶກໄດ້: ' + err.message });
     statusEl.textContent = "ບັນທຶກບໍ່ສຳເລັດ: " + err.message;
   } finally {
     btn.disabled = false;
@@ -681,7 +748,18 @@ $("clear-filters-btn").addEventListener("click", () => {
   renderFilterOptions();
   renderApplications();
 });
+/* ---------- ປິດ-ເປີດ ຄົ້ນຫາແບບພິເສດ ---------- */
+const toggleAdvBtn = $("toggle-advanced-search");
+const advFiltersBox = $("advanced-filters");
 
+if (toggleAdvBtn && advFiltersBox) {
+  toggleAdvBtn.addEventListener("click", () => {
+    // ສະຫຼັບ Class ເພື່ອເປີດ-ປິດ Slide
+    const isOpen = advFiltersBox.classList.toggle("is-open");
+    // ປ່ຽນຂໍ້ຄວາມເທິງປຸ່ມ
+    toggleAdvBtn.textContent = isOpen ? "- ປິດຄົ້ນຫາແບບພິເສດ" : "+ ຄົ້ນຫາແບບພິເສດ";
+  });
+}
 $("my-name").addEventListener("input", e => {
   ME.name = e.target.value.trim();
   try { localStorage.setItem("ssmi-my-name", ME.name); } catch (err){}
@@ -689,3 +767,49 @@ $("my-name").addEventListener("input", e => {
 
 $("reload-apps-btn").addEventListener("click", loadApplications);
 $("print-btn").addEventListener("click", () => window.print());
+
+/* ฟังก์ชันสำหรับอัปเดตคะแนนแบบ Real-time โดยไม่รีเฟรชช่องที่กำลังพิมพ์ */
+function updateLiveEvaluations() {
+  // หาบล็อกการประเมินทั้งหมดที่แสดงอยู่บนหน้าจอ
+  const evalBoxes = document.querySelectorAll("[data-eval-app]");
+  
+  evalBoxes.forEach(box => {
+    const appId = box.dataset.evalApp;
+    
+    // 1. คำนวณค่าเฉลี่ยใหม่ล่าสุด
+    const mine = myEvalOf(appId);
+    const myAvg = evalAverage(mine);
+    const { avg, count } = appAverage(appId);
+    
+    // 2. อัปเดตข้อความใน <summary> (ส่วนหัวที่บอกคะแนนรวม)
+    const detailsEl = box.closest("details");
+    if (detailsEl) {
+      const summaryEl = detailsEl.querySelector("summary");
+      if (summaryEl) {
+        summaryEl.textContent = `ໃຫ້ຄະແນນສຳພາດ ${myAvg !== null ? `— ຂອງທ່ານ ${fmt(myAvg)}/5` : "(ຍັງບໍ່ໄດ້ໃຫ້ຄະແນນ)"}${
+          count ? ` · ສະເລ່ຍລວມ ${fmt(avg)}/5 ຈາກ ${count} ຜູ້ສຳພາດ` : ""}`;
+      }
+    }
+    
+    // 3. อัปเดตรายชื่อและคะแนนของกรรมการคนอื่นด้านล่าง
+    const others = evalsOf(appId)
+      .filter(e => e.interviewerUid !== ME.uid)
+      .map(e => `<div>• <b>${escapeHtml(interviewerLabel(e))}</b> — ${fmt(evalAverage(e))}/5${
+        e.overallComment ? ` — ${escapeHtml(e.overallComment)}` : ""}</div>`).join("");
+        
+    let othersDiv = box.querySelector(".eval-others");
+    if (others) {
+      if (!othersDiv) {
+        // ถ้ายังไม่มี div นี้ให้สร้างขึ้นมาใหม่ต่อท้าย
+        othersDiv = document.createElement("div");
+        othersDiv.className = "eval-others";
+        box.appendChild(othersDiv);
+      }
+      // ใส่ข้อมูลคนอื่นลงไป
+      othersDiv.innerHTML = `<b>ຄະແນນຈາກຜູ້ສຳພາດຄົນອື່ນ:</b>${others}`;
+    } else if (othersDiv) {
+      // ถ้าไม่มีคนอื่นให้คะแนนแล้ว (เช่นถูกลบ) ให้เอา div ออก
+      othersDiv.remove();
+    }
+  });
+}

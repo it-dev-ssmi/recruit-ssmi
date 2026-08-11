@@ -13,6 +13,19 @@
 <link rel="stylesheet" href="hero-theme.css">
 <link rel="stylesheet" href="admin-theme.css">
 <style>
+  /* Animation ສຳລັບ Slide ລົງມາ ຄົ້ນຫາແບບພິເສດ */
+  .advanced-filters {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s ease-out;
+    overflow: hidden;
+  }
+  .advanced-filters.is-open {
+    grid-template-rows: 1fr;
+  }
+  .advanced-filters > div {
+    min-height: 0;
+  }
   /* ໜ້ານີ້ເປັນແບບ "ອ່ານຢ່າງດຽວ" — ພິມອອກເປັນເອກະສານໄດ້ */
   /* ຮູບຜູ້ສະໝັກຢູ່ຂ້າງຊ້າຍຂອງບັດ */
   .app-card-row{ display:flex; gap:20px; align-items:flex-start; }
@@ -179,7 +192,7 @@
       <div class="wrap">
 
         <div class="admin-head">
-          <h1>ໃບສະໝັກວຽກ</h1>
+          <h1>ໃຫ້ຄະແນນຜູ້ສະໝັກ</h1>
           <p class="settings-sub">ໂໝດອ່ານຢ່າງດຽວ — ຂໍ້ມູນຜູ້ສະໝັກຖືເປັນຄວາມລັບ ກະລຸນາຢ່າເຜີຍແຜ່ຕໍ່
           <br>ຜູ້ໃຊ້: <b id="viewer-email"></b> <span id="viewer-role" class="app-status"></span></p>
           <label class="field" style="max-width:420px">
@@ -199,28 +212,40 @@
           <span class="form-status" id="apps-status" role="status"></span>
         </div>
 
-        <div class="field-grid apps-only" id="apps-filter-bar">
-          <label class="field">
-            <span>ສາຂາ</span>
-            <select id="filter-branch"><option value="">ທຸກສາຂາ</option></select>
-          </label>
-          <label class="field">
-            <span>ພະແນກ</span>
-            <select id="filter-dept"><option value="">ທຸກພະແນກ</option></select>
-          </label>
-          <label class="field">
-            <span>ຕຳແໜ່ງ</span>
-            <select id="filter-position"><option value="">ທຸກຕຳແໜ່ງ</option></select>
-          </label>
-          <label class="field">
-            <span>ສະຖານະ</span>
-            <select id="filter-status"><option value="">ທຸກສະຖານະ</option></select>
-          </label>
-          <label class="field">
-            <span>ຄົ້ນຫາ (ຊື່ / ອີເມວ / ເບີໂທ / ຕຳແໜ່ງ)</span>
-            <input type="search" id="filter-search" placeholder="ພິມເພື່ອຄົ້ນຫາ...">
-          </label>
-        </div>
+        <div class="filter-section apps-only" style="margin-bottom: 20px;">
+  <!-- ແຖວຄົ້ນຫາຫຼັກ (ສະແດງຕະຫຼອດ) -->
+  <div style="display:flex; gap:12px; align-items:flex-end;">
+    <label class="field" style="flex:1; margin-bottom:0;">
+      <span>ຄົ້ນຫາ (ຊື່ / ອີເມວ / ເບີໂທ / ຕຳແໜ່ງ)</span>
+      <input type="search" id="filter-search" placeholder="ພິມເພື່ອຄົ້ນຫາ...">
+    </label>
+    <button type="button" class="btn btn--ghost" id="toggle-advanced-search" style="white-space: nowrap;">
+      + ຄົ້ນຫາແບບພິເສດ
+    </button>
+  </div>
+
+  <!-- ບລັອກຄົ້ນຫາແບບພິເສດ (ຊ່ອນໄວ້ກ່ອນ) -->
+  <div id="advanced-filters" class="advanced-filters">
+    <div class="field-grid" style="padding-top: 16px;">
+      <label class="field">
+        <span>ສາຂາ</span>
+        <select id="filter-branch"><option value="">ທຸກສາຂາ</option></select>
+      </label>
+      <label class="field">
+        <span>ພະແນກ</span>
+        <select id="filter-dept"><option value="">ທຸກພະແນກ</option></select>
+      </label>
+      <label class="field">
+        <span>ຕຳແໜ່ງ</span>
+        <select id="filter-position"><option value="">ທຸກຕຳແໜ່ງ</option></select>
+      </label>
+      <label class="field">
+        <span>ສະຖານະ</span>
+        <select id="filter-status"><option value="">ທຸກສະຖານະ</option></select>
+      </label>
+    </div>
+  </div>
+</div>
 
         <div class="panel-toolbar apps-only">
           <span class="form-status" id="apps-filter-summary" role="status"></span>
@@ -282,5 +307,7 @@
         "  export const APPLICATIONS_COLLECTION = \"applications\";";
     }, 2500);
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script type="module" src="interview.js" onerror="window.__loadFailed = true;"></script>
 </body>
 </html>
