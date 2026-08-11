@@ -25,6 +25,7 @@
       </a>
       <nav class="header-nav">
         <a href="index.html" class="nav-link nav-link--muted" target="_blank">ເບິ່ງໜ້າເວັບ ↗</a>
+        <a href="interview.html" class="nav-link nav-link--muted" target="_blank">ໜ້າຜູ້ສຳພາດ ↗</a>
         <button class="btn btn--ghost btn--sm" id="logout-btn" hidden>ອອກຈາກລະບົບ</button>
       </nav>
     </div>
@@ -51,6 +52,22 @@
             <span class="form-status" id="login-status" role="status"></span>
           </div>
         </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= NO PERMISSION VIEW ================= -->
+  <main id="denied-view" hidden>
+    <section class="admin-login">
+      <div class="login-card">
+        <span class="dept-code">READ ONLY</span>
+        <h1>ບັນຊີນີ້ເປັນ "ຜູ້ສຳພາດ"</h1>
+        <p class="login-note">ບັນຊີ <b id="denied-email"></b> ບໍ່ມີສິດເຂົ້າແຜງຄວບຄຸມ
+        — ເບິ່ງໃບສະໝັກໄດ້ທີ່ໜ້າຜູ້ສຳພາດ (ອ່ານຢ່າງດຽວ)</p>
+        <div class="form-actions">
+          <a class="btn btn--primary" href="interview.html">ໄປໜ້າຜູ້ສຳພາດ</a>
+          <button type="button" class="btn btn--ghost" id="denied-logout">ອອກຈາກລະບົບ</button>
+        </div>
       </div>
     </section>
   </main>
@@ -108,6 +125,45 @@
 
           <!-- ---------- TAB: SETTINGS ---------- -->
           <div id="tab-settings" class="tab-panel" hidden>
+
+            <!-- 1. ບັນຊີຜູ້ໃຊ້ງານລະບົບ (admin / ຜູ້ສຳພາດ) -->
+            <div class="settings-block">
+              <h3>ບັນຊີຜູ້ໃຊ້ງານລະບົບ</h3>
+              <p class="settings-sub">ກຳນົດວ່າໃຜເປັນ <b>ຜູ້ດູແລລະບົບ</b> (ແກ້ໄຂໄດ້ທຸກຢ່າງ) ແລະ ໃຜເປັນ
+              <b>ຜູ້ສຳພາດ</b> (ເບິ່ງໃບສະໝັກຢ່າງດຽວ ຜ່ານ interview.html)
+              <br>ຂັ້ນຕອນ: ສ້າງບັນຊີກ່ອນທີ່ Firebase Console → Authentication → Add user
+              ແລ້ວກັອບປີ້ <b>User UID</b> ມາໃສ່ດ້ານລຸ່ມ
+              <br>⚠️ ບັນຊີທີ່ຍັງບໍ່ຢູ່ໃນລາຍການນີ້ ຈະຖືວ່າເປັນຜູ້ດູແລລະບົບໂດຍອັດຕະໂນມັດ</p>
+              <form id="staff-form" novalidate>
+                <div class="field-grid">
+                  <label class="field">
+                    <span>User UID <em>*</em></span>
+                    <input type="text" id="staff-uid" placeholder="ເຊັ່ນ 8f2Kd9...">
+                  </label>
+                  <label class="field">
+                    <span>ອີເມວ / ຊື່ (ໄວ້ຈື່ເສີຍໆ)</span>
+                    <input type="text" id="staff-name" placeholder="somchai@ssmilaos.com">
+                  </label>
+                </div>
+                <div class="field-grid">
+                  <label class="field">
+                    <span>ບົດບາດ</span>
+                    <select id="staff-role">
+                      <option value="interviewer">ຜູ້ສຳພາດ — ເບິ່ງໃບສະໝັກຢ່າງດຽວ</option>
+                      <option value="admin">ຜູ້ດູແລລະບົບ — ແກ້ໄຂໄດ້ທຸກຢ່າງ</option>
+                    </select>
+                  </label>
+                  <div class="field">
+                    <span>&nbsp;</span>
+                    <button type="submit" class="btn btn--primary">ບັນທຶກບັນຊີ</button>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <span class="form-status" id="staff-status" role="status"></span>
+                </div>
+              </form>
+              <div id="staff-list"><!-- rendered by admin.js --></div>
+            </div>
 
             <!-- 2. ส่วนตั้งค่าอีเมลแจ้งเตือน -->
             <div class="settings-block">

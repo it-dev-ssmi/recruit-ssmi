@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ຜູ້ສຳພາດ — ເບິ່ງໃບສະໝັກວຽກ | SSMI</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="icon" type="image/png" href="SSMI LOGO FINAL3.png">
+<link rel="apple-touch-icon" href="SSMI LOGO FINAL3.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="hero-theme.css">
+<link rel="stylesheet" href="admin-theme.css">
+<style>
+  /* ໜ້ານີ້ເປັນແບບ "ອ່ານຢ່າງດຽວ" — ພິມອອກເປັນເອກະສານໄດ້ */
+  @media print {
+    .site-header, .site-footer, .panel-toolbar, #apps-filter-bar, .no-print { display: none !important; }
+    .app-card { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="index.html">
+        <img src="SSMI LOGO FINAL3.png" alt="SSMI logo" class="brand-logo"
+             onerror="this.remove(); document.querySelector('.brand-mark').hidden = false;">
+        <span class="brand-mark" hidden>SS</span>
+        <span class="brand-name">SSMI — ຜູ້ສຳພາດ</span>
+      </a>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-link nav-link--muted" target="_blank">ເບິ່ງໜ້າເວັບ ↗</a>
+        <button class="btn btn--ghost btn--sm" id="logout-btn" hidden>ອອກຈາກລະບົບ</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================= LOGIN VIEW ================= -->
+  <main id="login-view" hidden>
+    <section class="admin-login">
+      <div class="login-card">
+        <span class="dept-code">INTERVIEWER</span>
+        <h1>ກະລຸນາເຂົ້າສູ່ລະບົບ</h1>
+        <p class="login-note">ໜ້ານີ້ສຳລັບຜູ້ສຳພາດ — ເບິ່ງໃບສະໝັກໄດ້ຢ່າງດຽວ ແກ້ໄຂ ຫຼື ລຶບບໍ່ໄດ້
+        <br>ຫາກບໍ່ມີບັນຊີ ໃຫ້ຕິດຕໍ່ຫາພະແນກໄອທີ</p>
+        <form id="login-form" novalidate>
+          <label class="field">
+            <span>ອີເມວ</span>
+            <input type="email" id="login-email" required autocomplete="username">
+          </label>
+          <label class="field">
+            <span>ລະຫັດຜ່ານ</span>
+            <input type="password" id="login-password" required autocomplete="current-password">
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="login-submit">ເຂົ້າສູ່ລະບົບ</button>
+            <span class="form-status" id="login-status" role="status"></span>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= VIEWER ================= -->
+  <main id="viewer-view" hidden>
+    <section class="admin-shell">
+      <div class="wrap">
+
+        <div class="admin-head">
+          <h1>ໃບສະໝັກວຽກ</h1>
+          <p class="settings-sub">ໂໝດອ່ານຢ່າງດຽວ — ຂໍ້ມູນຜູ້ສະໝັກຖືເປັນຄວາມລັບ ກະລຸນາຢ່າເຜີຍແຜ່ຕໍ່
+          <br>ຜູ້ໃຊ້: <b id="viewer-email"></b> <span id="viewer-role" class="app-status"></span></p>
+        </div>
+
+        <div class="panel-toolbar">
+          <button class="btn btn--ghost" id="reload-apps-btn">ໂຫຼດຂໍ້ມູນໃໝ່</button>
+          <button class="btn btn--ghost" id="print-btn">ພິມ / ບັນທຶກເປັນ PDF</button>
+          <span class="form-status" id="apps-status" role="status"></span>
+        </div>
+
+        <div class="field-grid" id="apps-filter-bar">
+          <label class="field">
+            <span>ສາຂາ</span>
+            <select id="filter-branch"><option value="">ທຸກສາຂາ</option></select>
+          </label>
+          <label class="field">
+            <span>ພະແນກ</span>
+            <select id="filter-dept"><option value="">ທຸກພະແນກ</option></select>
+          </label>
+          <label class="field">
+            <span>ຕຳແໜ່ງ</span>
+            <select id="filter-position"><option value="">ທຸກຕຳແໜ່ງ</option></select>
+          </label>
+          <label class="field">
+            <span>ສະຖານະ</span>
+            <select id="filter-status"><option value="">ທຸກສະຖານະ</option></select>
+          </label>
+          <label class="field">
+            <span>ຄົ້ນຫາ (ຊື່ / ອີເມວ / ເບີໂທ / ຕຳແໜ່ງ)</span>
+            <input type="search" id="filter-search" placeholder="ພິມເພື່ອຄົ້ນຫາ...">
+          </label>
+        </div>
+
+        <div class="panel-toolbar">
+          <span class="form-status" id="apps-filter-summary" role="status"></span>
+          <button type="button" class="btn btn--ghost btn--sm" id="clear-filters-btn">ລ້າງຕົວກອງ</button>
+        </div>
+
+        <div id="apps-list" class="apps-list">
+          <!-- rendered by interview.js -->
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-row">
+      <p>© <span id="year"></span> SSMI ສິນຊັບເມືອງເໜືອ — ໜ້ານີ້ສຳລັບຜູ້ສຳພາດເທົ່ານັ້ນ</p>
+      <p class="footer-note">ໂໝດອ່ານຢ່າງດຽວ (read-only)</p>
+    </div>
+  </footer>
+
+  <script type="module" src="interview.js"></script>
+</body>
+</html>

@@ -50,26 +50,51 @@ function setStatus(el, msg, kind = ""){
    ========================================================================== */
 const loginView = $("login-view");
 const adminView = $("admin-view");
+const deniedView = $("denied-view");
 const logoutBtn = $("logout-btn");
+const STAFF_COLLECTION = "staff";
+let myRole = "admin";
+
+/* ບົດບາດຂອງບັນຊີທີ່ລ໋ອກອິນ — ບໍ່ມີ staff doc = ຖືເປັນ admin (ບັນຊີເກົ່າ) */
+async function fetchMyRole(uid){
+  try {
+    const snap = await getDoc(doc(db, STAFF_COLLECTION, uid));
+    if(snap.exists() && snap.data().role) return snap.data().role;
+  } catch (err){ console.warn("ອ່ານບົດບາດບໍ່ໄດ້:", err); }
+  return "admin";
+}
 
 if(FIREBASE_NOT_CONFIGURED){
   loginView.hidden = false;
   setStatus($("login-status"), "ຍັງບໍ່ໄດ້ຕັ້ງຄ່າ Firebase — ແກ້ໄຂ firebase-config.js ກ່ອນ (ເບິ່ງ README.md)", "err");
 }
 
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   if(FIREBASE_NOT_CONFIGURED) return;
   if(user){
+    myRole = await fetchMyRole(user.uid);
+    if(myRole !== "admin"){
+      /* ບັນຊີຜູ້ສຳພາດ — ບໍ່ໃຫ້ເຂົ້າແຜງຄວບຄຸມ (rules ກໍ່ບລັອກໄວ້ອີກຊັ້ນ) */
+      loginView.hidden = true;
+      adminView.hidden = true;
+      deniedView.hidden = false;
+      logoutBtn.hidden = false;
+      $("denied-email").textContent = user.email || "(ບໍ່ຮູ້ອີເມວ)";
+      return;
+    }
     loginView.hidden = true;
+    deniedView.hidden = true;
     adminView.hidden = false;
     logoutBtn.hidden = false;
     $("admin-email").textContent = user.email || "(ບໍ່ຮູ້ອີເມວ)";
     loadDepartments().then(loadBranches);
     loadApplications();
     loadSettings();
+    loadStaff();
   } else {
     loginView.hidden = false;
     adminView.hidden = true;
+    deniedView.hidden = true;
     logoutBtn.hidden = true;
   }
 });
@@ -1197,3 +1222,102 @@ $("save-form-fields-btn").addEventListener("click", async () => {
     setStatus($("form-fields-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
   }
 });
+
+
+/* ==========================================================================
+   ບັນຊີຜູ້ໃຊ້ງານລະບົບ (staff) — admin / ຜູ້ສຳພາດ
+   ເກັບໃນ Firestore: staff/{uid} = { role, name }
+   ບັນຊີທີ່ບໍ່ມີ doc ຢູ່ໃນນີ້ ຈະຖືເປັນ admin ໂດຍອັດຕະໂນມັດ (ຕາມ firestore.rules)
+   ========================================================================== */
+const ROLE_LABEL = { admin: "ຜູ້ດູແລລະບົບ", interviewer: "ຜູ້ສຳພາດ (ອ່ານຢ່າງດຽວ)" };
+let staffList = [];
+
+async function loadStaff(){
+  const listEl = $("staff-list");
+  listEl.innerHTML = `<p class="admin-loading">ກຳລັງໂຫຼດບັນຊີ...</p>`;
+  try {
+    const snap = await getDocs(collection(db, STAFF_COLLECTION));
+    staffList = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    renderStaff();
+  } catch (err){
+    console.error(err);
+    listEl.innerHTML = `<p class="admin-error">ໂຫຼດບັນຊີບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderStaff(){
+  const listEl = $("staff-list");
+  if(!staffList.length){
+    listEl.innerHTML = `<div class="admin-empty"><p>ຍັງບໍ່ໄດ້ກຳນົດບົດບາດໃຫ້ບັນຊີໃດເລີຍ</p>
+      <p class="admin-empty-sub">ຕອນນີ້ທຸກບັນຊີທີ່ລ໋ອກອິນໄດ້ ຈະເປັນຜູ້ດູແລລະບົບທັງໝົດ</p></div>`;
+    return;
+  }
+  listEl.innerHTML = staffList
+    .sort((a, b) => (a.role || "").localeCompare(b.role || ""))
+    .map(st => `
+      <div class="dept-admin-card" data-uid="${escapeHtml(st.uid)}">
+        <div class="dept-admin-main">
+          <span class="dept-code">${st.role === "admin" ? "ADMIN" : "VIEW"}</span>
+          <div class="dept-admin-info">
+            <h3>${escapeHtml(st.name || "(ບໍ່ໄດ້ໃສ່ຊື່)")}</h3>
+            <div class="dept-admin-meta">
+              <span>${escapeHtml(ROLE_LABEL[st.role] || st.role || "-")}</span>
+              <span style="font-family:monospace">${escapeHtml(st.uid)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="dept-admin-actions">
+          <button class="btn btn--ghost btn--sm" data-staff-edit>ແກ້ໄຂ</button>
+          <button class="btn btn--danger btn--sm" data-staff-remove>ລຶບ</button>
+        </div>
+      </div>`).join("");
+
+  listEl.querySelectorAll(".dept-admin-card").forEach(card => {
+    const uid = card.dataset.uid;
+    const st = staffList.find(x => x.uid === uid);
+    card.querySelector("[data-staff-edit]").addEventListener("click", () => {
+      $("staff-uid").value = st.uid;
+      $("staff-name").value = st.name || "";
+      $("staff-role").value = st.role || "interviewer";
+      $("staff-uid").focus();
+      setStatus($("staff-status"), "ແກ້ໄຂແລ້ວກົດ \"ບັນທຶກບັນຊີ\" ເພື່ອຢືນຢັນ");
+    });
+    card.querySelector("[data-staff-remove]").addEventListener("click", async () => {
+      if(!confirm(`ລຶບການກຳນົດບົດບາດຂອງ "${st.name || st.uid}" ?\nຫຼັງລຶບແລ້ວ ບັນຊີນີ້ຈະກາຍເປັນຜູ້ດູແລລະບົບໂດຍອັດຕະໂນມັດ`)) return;
+      try {
+        await deleteDoc(doc(db, STAFF_COLLECTION, uid));
+        setStatus($("staff-status"), "ລຶບຮຽບຮ້ອຍ", "ok");
+        await loadStaff();
+      } catch (err){
+        console.error(err);
+        setStatus($("staff-status"), "ລຶບບໍ່ສຳເລັດ: " + err.message, "err");
+      }
+    });
+  });
+}
+
+$("staff-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const uid = $("staff-uid").value.trim();
+  const name = $("staff-name").value.trim();
+  const role = $("staff-role").value;
+  if(!uid){
+    setStatus($("staff-status"), "ກະລຸນາໃສ່ User UID (ກັອບປີ້ຈາກ Firebase Console → Authentication)", "err");
+    return;
+  }
+  if(uid === auth.currentUser?.uid && role !== "admin"){
+    if(!confirm("ນີ້ແມ່ນບັນຊີຂອງທ່ານເອງ — ຖ້າຕັ້ງເປັນຜູ້ສຳພາດ ທ່ານຈະເຂົ້າແຜງຄວບຄຸມນີ້ບໍ່ໄດ້ອີກ ຢືນຢັນບໍ່?")) return;
+  }
+  try {
+    await setDoc(doc(db, STAFF_COLLECTION, uid), { role, name });
+    setStatus($("staff-status"), `ບັນທຶກຮຽບຮ້ອຍ — ${ROLE_LABEL[role]}`, "ok");
+    $("staff-uid").value = "";
+    $("staff-name").value = "";
+    await loadStaff();
+  } catch (err){
+    console.error(err);
+    setStatus($("staff-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
+  }
+});
+
+$("denied-logout").addEventListener("click", () => signOut(auth));

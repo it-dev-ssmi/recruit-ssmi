@@ -3,11 +3,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Admin = ผู้ใช้ที่ล็อกอินผ่าน Firebase Authentication แล้วเท่านั้น
-    // (สร้างบัญชี admin เองใน Firebase Console → Authentication → Add user
-    //  และปิดการสมัครสมาชิกเองไว้ — ดู README ขั้นตอน "หน้า Admin")
-    function isAdmin() {
+    // ------------------------------------------------------------------
+    // ROLES  ->  staff/{uid}
+    //   { role: "admin" }        : full access, can use admin.html
+    //   { role: "interviewer" }  : read-only, uses interview.html
+    //
+    // An account with NO staff doc is treated as admin, so existing
+    // accounts are not locked out when these rules are published.
+    // ------------------------------------------------------------------
+    function signedIn() {
       return request.auth != null;
+    }
+
+    function staffDoc() {
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid));
+    }
+
+    function hasStaffDoc() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/staff/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return signedIn() && (!hasStaffDoc() || staffDoc().data.role == 'admin');
     }
 
     function isValidApplication(data) {
@@ -20,33 +38,37 @@ service cloud.firestore {
         && data.to is list;
     }
 
-    // ใบสมัครงาน
-    // - create: ทุกคนส่งใบสมัครได้ (ไม่ต้องล็อกอิน)
-    // - read/update/delete: เฉพาะ admin (ดู/เปลี่ยนสถานะ/ลบ ผ่านหน้า admin.html)
-    match /applications/{applicationId} {
-      allow create: if isValidApplication(request.resource.data);
-      allow read, update, delete: if isAdmin();
+    // Staff roles.
+    // read  : your own doc (the site checks your role), or any doc if admin
+    // write : admin only (managed from admin.html -> Settings tab)
+    match /staff/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update, delete: if isAdmin();
     }
 
-    // ข้อมูลแผนก
-    // - read: ทุกคนอ่านได้ (หน้าเว็บสาธารณะใช้แสดงแผนก/ตำแหน่ง)
-    // - write: เฉพาะ admin (จัดการผ่านหน้า admin.html)
+    // Job applications.
+    // create        : anyone (public application form, no login)
+    // read          : any signed-in account (admin + interviewer)
+    // update/delete : admin only (interviewers cannot edit or delete)
+    match /applications/{applicationId} {
+      allow create: if isValidApplication(request.resource.data);
+      allow read: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // Departments (public position catalogue).
     match /departments/{deptId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // ข้อมูลสาขา/แขวง — แต่ละสาขาเลือกได้ว่าเปิดรับตำแหน่งใดบ้าง
-    // - read: ทุกคนอ่านได้ (หน้าเว็บสาธารณะใช้แสดงแท็บสาขา + กรองตำแหน่ง)
-    // - write: เฉพาะ admin (จัดการผ่านหน้า admin.html → แท็บ "จัดการสาขา")
+    // Branches.
     match /branches/{branchId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // การตั้งค่าระบบ (อีเมลแจ้งเตือน HR, โครงสร้างฟอร์มสมัคร ฯลฯ)
-    // - read: ทุกคนอ่านได้ (หน้าฟอร์มสาธารณะต้องใช้ตอน render/ส่งใบสมัคร)
-    // - write: เฉพาะ admin (แก้จากแท็บ "ตั้งค่า" ในหน้า admin.html)
+    // Settings (HR notification emails, application form structure, etc).
     match /settings/{settingId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
