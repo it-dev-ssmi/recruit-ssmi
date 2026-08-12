@@ -674,8 +674,25 @@ function renderDetail(deptId){
             </a>
           </div>
 
-          <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-            <div class="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div class="flex flex-col gap-6">
+            <!-- 1. ส่วนการ์ดตำแหน่งงาน (ขยายเต็มขอบ และนำขึ้นมาก่อน) -->
+            <div id="positions-container" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-500 sm:p-6 w-full">
+              <h4 class="mb-4 font-display text-base font-bold text-slate-900">${t("posTitle")}</h4>
+              <div class="flex flex-col gap-4">
+                ${positions.length
+                  ? positions.map(({ p, i }) => positionCard(d, p, i)).join("")
+                  : `
+                    <div class="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-200 p-6 text-center">
+                      <span class="text-sm text-slate-400">${t("posEmpty")}</span>
+                      <button class="inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 sm:w-auto" data-apply-general="${d.id}">${t("applyGeneral")}</button>
+                    </div>
+                  `
+                }
+              </div>
+            </div>
+
+            <!-- 2. ส่วนหน้าที่รับผิดชอบ (ย้ายลงมาไว้ด้านล่าง) -->
+            <div class="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 w-full">
               <details class="group marker:content-none">
                 <summary class="flex cursor-pointer items-center justify-between font-display text-base font-bold text-slate-900 transition-colors duration-200 hover:text-indigo-600">
                   ${t("respTitle")}
@@ -688,19 +705,9 @@ function renderDetail(deptId){
                 </ul>
               </details>
             </div>
+          </div>
 
-            <div id="positions-container" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-500 sm:p-6">
-              <h4 class="mb-4 font-display text-base font-bold text-slate-900">${t("posTitle")}</h4>
-              <div class="flex flex-col gap-4">
-                ${positions.length
-                  ? positions.map(({ p, i }) => positionCard(d, p, i)).join("")
-                  : `
-                    <div class="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-200 p-6 text-center">
-                      <span class="text-sm text-slate-400">${t("posEmpty")}</span>
-                      <button class="inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 sm:w-auto" data-apply-general="${d.id}">${t("applyGeneral")}</button>
-                    </div>
-                  `
-                }
+            
               </div>
             </div>
 
@@ -829,12 +836,22 @@ function positionCard(d, p, i){
   const opened = isPositionOpenInBranch(branch, p);
   const headcount = getPositionHeadcount(branch, p);
   const deadline = getPositionDeadline(branch, p); // ดึงวันที่ปิดรับ
-
+  const opening = (branch.openings || []).find(op => op.posId === p.id);
+  let genderText = "";
+  if (opening && headcount > 0) {
+    const parts = [];
+    if (opening.countM > 0) parts.push(`ຊາຍ ${opening.countM}`);
+    if (opening.countF > 0) parts.push(`ຍິງ ${opening.countF}`);
+    if (opening.countAny > 0) parts.push(`ຊາຍ/ຍິງ ${opening.countAny}`);
+    if (parts.length > 0) {
+      genderText = ` (${parts.join(", ")})`;
+    }
+  }
   return `
     <div class="group/card overflow-hidden rounded-2xl border ${opened ? "border-indigo-200 bg-white js-open-position" : "border-slate-100 bg-slate-50"} shadow-sm transition-all duration-500 ${opened ? "hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/10" : ""}">
       <div class="flex flex-col sm:flex-row">
 
-        ${coverHtml(p, d, `h-40 w-full sm:h-auto sm:w-52 sm:shrink-0 ${opened ? "" : "grayscale"}`)}
+        ${coverHtml(p, d, `aspect-square h-40 w-full sm:h-56 sm:w-56 sm:shrink-0 object-cover ${opened ? "" : "grayscale"}`)}
 
         <div class="min-w-0 flex-1 p-4 sm:p-5">
           <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
@@ -844,9 +861,8 @@ function positionCard(d, p, i){
                 <span class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(tr(p, "type") || p.type || "")}</span>
 
                 ${headcount > 0
-                  ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">${t("seatsN")(headcount)}</span>`
-                  : `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>`}
-
+    ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">${t("seatsN")(headcount)}${genderText}</span>`
+    : `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>`}
                 <!-- แสดงวันที่ปิดรับสมัครตัวเล็กๆ -->
                 ${deadline ? `<span class="text-xs font-medium text-slate-400">📅 ປິດຮັບສະໝັກ: ${escapeHtml(deadline)}</span>` : ""}
               </div>

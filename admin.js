@@ -511,16 +511,23 @@ async function loadBranches(){
 function migrateBranchShape(b){
   if(!Array.isArray(b.openings)){
     b.openings = Array.isArray(b.positionIds)
-      ? b.positionIds.map(id => ({ posId: id, count: 0, deadline: "" }))
+      ? b.positionIds.map(id => ({ posId: id, count: 0, countM: 0, countF: 0, countAny: 0, deadline: "" }))
       : [];
   }
   b.openings = b.openings
     .filter(op => op && op.posId)
-    .map(op => ({ 
-      posId: op.posId, 
-      count: Math.max(0, Number(op.count) || 0),
-      deadline: op.deadline || ""  // <-- เพิ่มบรรทัดนี้ เพื่อดึง deadline กลับมาโชว์!
-    }));
+    .map(op => {
+      const totalCount = Math.max(0, Number(op.count) || 0);
+      return { 
+        posId: op.posId, 
+        count: totalCount,
+        countM: Math.max(0, Number(op.countM) || 0),
+        countF: Math.max(0, Number(op.countF) || 0),
+        // ถ้าเป็นข้อมูลเก่า (ไม่มี countM, countF) จะเอายอดรวมไปใส่ใน countAny
+        countAny: op.countAny !== undefined ? Math.max(0, Number(op.countAny) || 0) : ((!op.countM && !op.countF) ? totalCount : 0),
+        deadline: op.deadline || ""  
+      };
+    });
   return b;
 }
 
@@ -649,24 +656,46 @@ function getPositionOptionsHtml(selectedPosId = ""){
 
 function branchOpeningRowHtml(op = {}){
   const orphan = op.posId && !findPosition(op.posId);
+  // ดึงค่าเดิมมาแสดง ถ้าเป็นข้อมูลเก่าที่มีแค่ count ระบบจะนำไปใส่ในช่อง 'ชาย-หญิง ໄດ້ໝົດ'
+  const m = Math.max(0, Number(op.countM) || 0);
+  const f = Math.max(0, Number(op.countF) || 0);
+  const any = (m === 0 && f === 0 && !op.countAny && op.count > 0) 
+              ? op.count 
+              : Math.max(0, Number(op.countAny) || 0);
+
   return `
-    <div class="branch-opening-block field-grid" style="align-items:end;margin-bottom:1rem;border-bottom:1px dashed #e2e8f0;padding-bottom:1rem;display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;">
-      <label class="field" style="margin-bottom:0;">
-        <span>ຕຳແໜ່ງ <em>*</em></span>
-        <select class="bo-pos-id">
-          ${getPositionOptionsHtml(op.posId)}
-          ${orphan ? `<option value="${escapeHtml(op.posId)}" selected>(ຕຳແໜ່ງນີ້ຖືກລຶບອອກຈາກຄັງແລ້ວ)</option>` : ""}
-        </select>
-      </label>
-      <label class="field" style="margin-bottom:0;">
-        <span>ຈຳນວນອັດຕາ</span>
-        <input type="number" class="bo-count" value="${Math.max(0, Number(op.count) || 0)}" min="0" step="1">
-      </label>
-      <label class="field" style="margin-bottom:0;">
-        <span>ວັນທີປິດຮັບ</span>
-        <input type="date" class="bo-deadline" value="${escapeHtml(op.deadline || "")}">
-      </label>
-      <button type="button" class="btn btn--danger" data-remove-opening style="margin-bottom:2px;">ລຶບ</button>
+    <div class="branch-opening-block field-grid" style="margin-bottom:1rem;border-bottom:1px dashed #e2e8f0;padding-bottom:1rem;display:flex;flex-direction:column;gap:10px;">
+      
+      <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;align-items:end;">
+        <label class="field" style="margin-bottom:0;">
+          <span>ຕຳແໜ່ງ <em>*</em></span>
+          <select class="bo-pos-id">
+            ${getPositionOptionsHtml(op.posId)}
+            ${orphan ? `<option value="${escapeHtml(op.posId)}" selected>(ຕຳແໜ່ງນີ້ຖືກລຶບອອກຈາກຄັງແລ້ວ)</option>` : ""}
+          </select>
+        </label>
+        <label class="field" style="margin-bottom:0;">
+          <span>ວັນທີປິດຮັບ</span>
+          <input type="date" class="bo-deadline" value="${escapeHtml(op.deadline || "")}">
+        </label>
+        <button type="button" class="btn btn--danger" data-remove-opening style="margin-bottom:2px;">ລຶບ</button>
+      </div>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
+        <label class="field" style="margin-bottom:0;">
+          <span style="font-size:12px;">ຮັບເພົດຊາຍ (ຄົນ)</span>
+          <input type="number" class="bo-count-m" value="${m}" min="0" step="1">
+        </label>
+        <label class="field" style="margin-bottom:0;">
+          <span style="font-size:12px;">ຮັບເພົດຍິງ (ຄົນ)</span>
+          <input type="number" class="bo-count-f" value="${f}" min="0" step="1">
+        </label>
+        <label class="field" style="margin-bottom:0;">
+          <span style="font-size:12px;">ຊາຍ-ຍິງ ໄດ້ໝົດ (ຄົນ)</span>
+          <input type="number" class="bo-count-any" value="${any}" min="0" step="1">
+        </label>
+      </div>
+
     </div>
   `;
 }
@@ -678,7 +707,10 @@ function addOpeningRow(op = {}){
     block.remove();
     updateBranchOpeningsSummary();
   });
-  block.querySelector(".bo-count").addEventListener("input", updateBranchOpeningsSummary);
+  // ตรวจจับการเปลี่ยนค่าของ 3 ช่องใหม่ เพื่อบวกรวมยอดทันที
+  block.querySelector(".bo-count-m").addEventListener("input", updateBranchOpeningsSummary);
+  block.querySelector(".bo-count-f").addEventListener("input", updateBranchOpeningsSummary);
+  block.querySelector(".bo-count-any").addEventListener("input", updateBranchOpeningsSummary);
   block.querySelector(".bo-pos-id").addEventListener("change", updateBranchOpeningsSummary);
   updateBranchOpeningsSummary();
   return block;
@@ -687,13 +719,21 @@ function addOpeningRow(op = {}){
 function currentOpeningsFromDom(){
   const seen = new Set();
   return [...branchPositionsContainer.querySelectorAll(".branch-opening-block")]
-    .map(block => ({
-      posId: block.querySelector(".bo-pos-id").value,
-      count: Math.max(0, Number(block.querySelector(".bo-count").value) || 0),
-      deadline: block.querySelector(".bo-deadline").value.trim() // <-- เพิ่มบรรทัดนี้
-    }))
+    .map(block => {
+      const m = Math.max(0, Number(block.querySelector(".bo-count-m").value) || 0);
+      const f = Math.max(0, Number(block.querySelector(".bo-count-f").value) || 0);
+      const any = Math.max(0, Number(block.querySelector(".bo-count-any").value) || 0);
+      return {
+        posId: block.querySelector(".bo-pos-id").value,
+        countM: m,
+        countF: f,
+        countAny: any,
+        count: m + f + any, // บวกรวมยอดอัตโนมัติ เพื่อให้ระบบเดิมทำงานต่อได้
+        deadline: block.querySelector(".bo-deadline").value.trim() 
+      };
+    })
     .filter(op => {
-      if(!op.posId || seen.has(op.posId)) return false;   // ຕັດຕຳແໜ່ງຊ້ຳ / ຍັງບໍ່ໄດ້ເລືອກ
+      if(!op.posId || seen.has(op.posId)) return false; 
       seen.add(op.posId);
       return true;
     });
