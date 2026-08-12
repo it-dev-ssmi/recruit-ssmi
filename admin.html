@@ -12,6 +12,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="hero-theme.css">
 <link rel="stylesheet" href="admin-theme.css">
+<style>
+  /* ຮູບປະກອບຕຳແໜ່ງ */
+  .pos-image-row{ display:flex; gap:14px; align-items:flex-start; margin-top:6px; }
+  .pos-image-preview{
+    flex:0 0 auto; width:140px; height:92px; border-radius:12px; overflow:hidden;
+    border:1px solid #e2e8f0; background:#f8fafc;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pos-image-preview img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .pos-image-empty{ font-size:11px; color:#94a3b8; text-align:center; line-height:1.5; padding:8px; }
+  .pos-image-controls{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:8px; }
+  .pos-image-controls input[type="url"]{ width:100%; }
+  .pos-upload-label{ cursor:pointer; display:inline-flex; align-items:center; }
+  @media (max-width:640px){
+    .pos-image-row{ flex-direction:column; }
+    .pos-image-preview{ width:100%; height:130px; }
+  }
+</style>
 </head>
 <body>
 
@@ -25,6 +43,7 @@
       </a>
       <nav class="header-nav">
         <a href="index.html" class="nav-link nav-link--muted" target="_blank">ເບິ່ງໜ້າເວັບ ↗</a>
+        <a href="interview.html" class="nav-link nav-link--muted" target="_blank">ໜ້າຜູ້ສຳພາດ ↗</a>
         <button class="btn btn--ghost btn--sm" id="logout-btn" hidden>ອອກຈາກລະບົບ</button>
       </nav>
     </div>
@@ -51,6 +70,22 @@
             <span class="form-status" id="login-status" role="status"></span>
           </div>
         </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= NO PERMISSION VIEW ================= -->
+  <main id="denied-view" hidden>
+    <section class="admin-login">
+      <div class="login-card">
+        <span class="dept-code">READ ONLY</span>
+        <h1>ບັນຊີນີ້ເປັນ "ຜູ້ສຳພາດ"</h1>
+        <p class="login-note">ບັນຊີ <b id="denied-email"></b> ບໍ່ມີສິດເຂົ້າແຜງຄວບຄຸມ
+        — ເບິ່ງໃບສະໝັກໄດ້ທີ່ໜ້າຜູ້ສຳພາດ (ອ່ານຢ່າງດຽວ)</p>
+        <div class="form-actions">
+          <a class="btn btn--primary" href="interview.html">ໄປໜ້າຜູ້ສຳພາດ</a>
+          <button type="button" class="btn btn--ghost" id="denied-logout">ອອກຈາກລະບົບ</button>
+        </div>
       </div>
     </section>
   </main>
@@ -84,6 +119,8 @@
 
               <span class="form-status" id="dept-status" role="status"></span>
             </div>
+            <p class="settings-sub">ແທັບນີ້ຄື <b>ຄັງຕຳແໜ່ງຂອງທັງອົງກອນ</b> — ໃສ່ໄວ້ວ່າອົງກອນມີຕຳແໜ່ງໃດແດ່ (ຊື່ ປະເພດ ພາລະໜ້າທີ່)
+            ໂດຍຍັງບໍ່ຕ້ອງລະບຸວ່າສາຂາໃດຮັບ — ການເປີດຮັບ ແລະ ຈຳນວນອັດຕາ ໃຫ້ໄປຕັ້ງເອົາຢູ່ແທັບ "ຈັດການສາຂາ" ໃຜສາຂາມັນ</p>
             <div id="dept-admin-list" class="dept-admin-list">
               <!-- rendered by admin.js -->
             </div>
@@ -95,8 +132,10 @@
               <button class="btn btn--primary" id="add-branch-btn">+ ເພີ່ມສາຂາໃໝ່</button>
               <span class="form-status" id="branch-status" role="status"></span>
             </div>
-            <p class="settings-sub">ແຕ່ລະສາຂາເລືອກໄດ້ວ່າຈະເປີດຮັບຕຳແໜ່ງໃດແດ່ຈາກຊຸດຕຳແໜ່ງຂອງພະແນກຕ່າງໆ (ແທັບ "ຈັດການພະແນກ")
-            — ຫາກຕັ້ງເປັນ "ເປີດຮັບທຸກຕຳແໜ່ງ" ຈະສະແດງທຸກຕຳແໜ່ງທີ່ເປີດຮັບຢູ່ໂດຍອັດຕະໂນມັດ ໂດຍບໍ່ຕ້ອງເລືອກເອງ (ໃຊ້ກັບສຳນັກງານໃຫຍ່)</p>
+            <p class="settings-sub">ແຕ່ລະສາຂາເລືອກເອງວ່າ <b>ມີຕຳແໜ່ງໃດແດ່</b> ຈາກຄັງຕຳແໜ່ງ (ແທັບ "ຈັດການພະແນກ") ແລ້ວໃສ່ຈຳນວນອັດຕາ:
+            <br>• <b>ຈຳນວນ = 0</b> → ສາຂາມີຕຳແໜ່ງນີ້ ແຕ່ຍັງບໍ່ເປີດຮັບ (ຂຶ້ນໄວ້ໃຫ້ຄົນສົນໃຈ "ຝາກປະຫວັດ")
+            <br>• <b>ຈຳນວນ ≥ 1</b> → ເປີດຮັບຈຳນວນອັດຕານັ້ນ ແລະ ຈະຂຶ້ນປ້າຍສີຂຽວຢູ່ໜ້າເວັບ
+            <br>• ຕຳແໜ່ງທີ່ບໍ່ໄດ້ເພີ່ມໄວ້ → ຈະບໍ່ສະແດງໃນສາຂານັ້ນເລີຍ</p>
             <div id="branch-admin-list" class="dept-admin-list">
               <!-- rendered by admin.js -->
             </div>
@@ -105,6 +144,61 @@
           <!-- ---------- TAB: SETTINGS ---------- -->
           <div id="tab-settings" class="tab-panel" hidden>
 
+            <!-- 1. ບັນຊີຜູ້ໃຊ້ງານລະບົບ (admin / ຜູ້ສຳພາດ) -->
+            <div class="settings-block">
+              <h3>ບັນຊີຜູ້ໃຊ້ງານລະບົບ</h3>
+              <p class="settings-sub">ກຳນົດວ່າໃຜເປັນ <b>ຜູ້ດູແລລະບົບ</b> (ແກ້ໄຂໄດ້ທຸກຢ່າງ) ແລະ ໃຜເປັນ
+              <b>ຜູ້ສຳພາດ</b> (ເບິ່ງໃບສະໝັກຢ່າງດຽວ ຜ່ານ interview.html)
+              <br>ຂັ້ນຕອນ: ສ້າງບັນຊີກ່ອນທີ່ Firebase Console → Authentication → Add user
+              ແລ້ວກັອບປີ້ <b>User UID</b> ມາໃສ່ດ້ານລຸ່ມ
+              <br>⚠️ ບັນຊີທີ່ຍັງບໍ່ຢູ່ໃນລາຍການນີ້ ຈະຖືວ່າເປັນຜູ້ດູແລລະບົບໂດຍອັດຕະໂນມັດ</p>
+              <form id="staff-form" novalidate>
+                <div class="field-grid">
+                  <label class="field">
+                    <span>User UID <em>*</em></span>
+                    <input type="text" id="staff-uid" placeholder="ເຊັ່ນ 8f2Kd9...">
+                  </label>
+                  <label class="field">
+                    <span>ອີເມວ / ຊື່ (ໄວ້ຈື່ເສີຍໆ)</span>
+                    <input type="text" id="staff-name" placeholder="somchai@ssmilaos.com">
+                  </label>
+                </div>
+                <div class="field-grid">
+                  <label class="field">
+                    <span>ບົດບາດ</span>
+                    <select id="staff-role">
+                      <option value="interviewer">ຜູ້ສຳພາດ — ເບິ່ງໃບສະໝັກຢ່າງດຽວ</option>
+                      <option value="admin">ຜູ້ດູແລລະບົບ — ແກ້ໄຂໄດ້ທຸກຢ່າງ</option>
+                    </select>
+                  </label>
+                  <div class="field">
+                    <span>&nbsp;</span>
+                    <button type="submit" class="btn btn--primary">ບັນທຶກບັນຊີ</button>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <span class="form-status" id="staff-status" role="status"></span>
+                </div>
+              </form>
+              <div id="staff-list"><!-- rendered by admin.js --></div>
+            </div>
+
+            <!-- 1.5 ຫົວຂໍ້ໃຫ້ຄະແນນສຳພາດ -->
+            <div class="settings-block">
+              <h3>ຫົວຂໍ້ໃຫ້ຄະແນນຕອນສຳພາດ</h3>
+              <p class="settings-sub">ຫົວຂໍ້ເຫຼົ່ານີ້ຈະໄປສະແດງໃນໜ້າຜູ້ສຳພາດ (interview.html) ໃຫ້ຄະແນນ 0–5 ຕໍ່ຫົວຂໍ້
+              ພ້ອມກ່ອງຄຳເຫັນຂອງແຕ່ລະຫົວຂໍ້
+              <br>ເພີ່ມ / ລຶບ / ຈັດລຳດັບໄດ້ຕາມຕ້ອງການ — ແນະນຳ 4–6 ຫົວຂໍ້
+              <br>⚠️ ຖ້າລຶບຫົວຂໍ້ທີ່ໃຫ້ຄະແນນໄປແລ້ວ ຄະແນນເກົ່າຂອງຫົວຂໍ້ນັ້ນຈະບໍ່ຖືກນຳມາຄິດອີກ</p>
+              <div class="panel-toolbar">
+                <button type="button" class="btn btn--primary" id="add-criterion-btn">+ ເພີ່ມຫົວຂໍ້</button>
+                <button type="button" class="btn btn--ghost" id="save-criteria-btn">ບັນທຶກຫົວຂໍ້ຄະແນນ</button>
+                <span class="form-status" id="criteria-status" role="status"></span>
+              </div>
+              <div id="criteria-container"><!-- rendered by admin.js --></div>
+            </div>
+
+            <!-- 2. ส่วนตั้งค่าอีเมลแจ้งเตือน -->
             <div class="settings-block">
               <h3>ອີເມວທີ່ແຈ້ງເຕືອນເວລາມີໃບສະໝັກໃໝ່</h3>
               <p class="settings-sub">ເມື່ອມີຄົນສົ່ງໃບສະໝັກ ລະບົບຈະສົ່ງອີເມວແຈ້ງໄປຫາທີ່ຢູ່ເຫຼົ່ານີ້ (1 ແຖວ = 1 ອີເມວ)
@@ -116,17 +210,29 @@
                 </label>
                 <div class="form-actions">
                   <button type="submit" class="btn btn--primary">ບັນທຶກອີເມວແຈ້ງເຕືອນ</button>
+                  <button type="button" class="btn btn--ghost" id="test-email-btn">ສົ່ງອີເມວທົດສອບ</button>
                   <span class="form-status" id="notify-status" role="status"></span>
                 </div>
               </form>
             </div>
 
+            <!-- 3. ส่วนเพิ่มช่องกรอกฟอร์มแบบ Custom (อันนี้แหละที่หายไป!) -->
             <div class="settings-block">
               <h3>ຊ່ອງກອກໃນຟອມສະໝັກງານ</h3>
-              <p class="settings-sub">ຊ່ອງ <b>ຊື່ / ອີເມວ / ເບີໂທລະສັບ</b> ເປັນຊ່ອງບັງຄັບຖາວອນຂອງລະບົບ ລຶບບໍ່ໄດ້
-              — ຊ່ອງອື່ນໆລຸ່ມນີ້ ສາມາດເພີ່ມ/ລຶບ/ຈັດລຳດັບ/ຕັ້ງເປັນຊ່ອງບັງຄັບໄດ້ຕາມຕ້ອງການ
-              ຮອງຮັບທັງຂໍ້ຄວາມ ຕົວເລືອກ ແນບໄຟລ໌ PDF ແລະ ແນບຮູບພາບ</p>
+              <p class="settings-sub">ຟອມສະໝັກງານທັງໝົດຖືກສ້າງຈາກລາຍການລຸ່ມນີ້ — ເພີ່ມ / ລຶບ / ຈັດລຳດັບ / ປ່ຽນຊື່ 2 ພາສາ
+              ໄດ້ໝົດ ໂດຍບໍ່ຕ້ອງແກ້ໂຄດ (ເຊັ່ນ ຢາກເພີ່ມ "ຊື່-ນາມສະກຸນ ພາສາອັງກິດ" ກໍ່ກົດ "+ ເພີ່ມຊ່ອງກອກ" ໄດ້ເລີຍ)
+              <br>• ຮອງຮັບ: ຂໍ້ຄວາມ / ຂໍ້ຄວາມຍາວ / ຕົວເລືອກ / ອີເມວ / ເບີໂທ / ຕົວເລກ / ວັນທີ / ລິງ / ແນບ PDF / ແນບຮູບ
+              <br>• <b>ຊ່ອງລະບົບ 3 ຊ່ອງ (ຊື່, ອີເມວ, ເບີໂທລະສັບ)</b> ລຶບບໍ່ໄດ້ ແລະ ບັງຄັບກອກສະເໝີ ແຕ່ປ່ຽນຊື່ປ້າຍ ຈັດລຳດັບ
+              ແລະ ປັບຄວາມກວ້າງໄດ້ຕາມປົກກະຕິ
+              <br>• ຢ່າລືມກົດ <b>"ບັນທຶກຟອມ"</b> ທຸກຄັ້ງ ຟອມໜ້າເວັບຈຶ່ງຈະປ່ຽນຕາມ</p>
+              <label class="field">
+                <span>ຫົວຂໍ້ຂອງແຕ່ລະຂັ້ນຕອນ (1 ແຖວ = 1 ໜ້າ) — ແຖວທີ 1 ຄືໜ້າທີ 1</span>
+                <textarea id="step-titles" rows="3" placeholder="ຂໍ້ມູນຕິດຕໍ່&#10;ຂໍ້ມູນການສຶກສາ&#10;ຂໍ້ມູນອື່ນໆ"></textarea>
+              </label>
+              <p class="settings-sub">ຖ້າທຸກຊ່ອງຢູ່ "ໜ້າທີ 1" ໝົດ ຟອມຈະເປັນໜ້າດຽວຄືເກົ່າ —
+              ຖ້າຢາກແບ່ງເປັນຫຼາຍໜ້າ ໃຫ້ຕັ້ງຄ່າ "ຢູ່ໜ້າທີ (ຂັ້ນຕອນ)" ຂອງແຕ່ລະຊ່ອງ ແລ້ວຜູ້ສະໝັກຈະເຫັນປຸ່ມ "ຖັດໄປ →"</p>
               <div class="panel-toolbar">
+                <!-- ปุ่มเพิ่มช่องอยู่ตรงนี้ครับ -->
                 <button type="button" class="btn btn--primary" id="add-form-field-btn">+ ເພີ່ມຊ່ອງກອກ</button>
                 <button type="button" class="btn btn--ghost" id="save-form-fields-btn">ບັນທຶກຟອມ</button>
                 <span class="form-status" id="form-fields-status" role="status"></span>
@@ -140,6 +246,30 @@
             <div class="panel-toolbar">
               <button class="btn btn--ghost" id="reload-apps-btn">ໂຫຼດຂໍ້ມູນໃໝ່</button>
               <span class="form-status" id="apps-status" role="status"></span>
+            </div>
+
+            <!-- ຕົວກອງໃບສະໝັກ -->
+            <div class="field-grid" id="apps-filter-bar">
+              <label class="field">
+                <span>ສາຂາ</span>
+                <select id="filter-branch"><option value="">ທຸກສາຂາ</option></select>
+              </label>
+              <label class="field">
+                <span>ພະແນກ</span>
+                <select id="filter-dept"><option value="">ທຸກພະແນກ</option></select>
+              </label>
+              <label class="field">
+                <span>ສະຖານະ</span>
+                <select id="filter-status"><option value="">ທຸກສະຖານະ</option></select>
+              </label>
+              <label class="field">
+                <span>ຄົ້ນຫາ (ຊື່ / ອີເມວ / ເບີໂທ / ຕຳແໜ່ງ)</span>
+                <input type="search" id="filter-search" placeholder="ພິມເພື່ອຄົ້ນຫາ...">
+              </label>
+            </div>
+            <div class="panel-toolbar">
+              <span class="form-status" id="apps-filter-summary" role="status"></span>
+              <button type="button" class="btn btn--ghost btn--sm" id="clear-filters-btn">ລ້າງຕົວກອງ</button>
             </div>
             <div id="apps-list" class="apps-list">
               <!-- rendered by admin.js -->
@@ -193,6 +323,7 @@
         <div class="positions-editor">
           <div class="positions-editor-head">
             <h4>ຕຳແໜ່ງທີ່ເປີດຮັບໃນພະແນກນີ້</h4>
+            <p class="settings-sub" style="margin:0 12px 0 0">ແຕ່ລະຕຳແໜ່ງໃສ່ຮູບປະກອບໄດ້ — ປະຫວ່າງໄວ້ ລະບົບຈະເລືອກຮູບໃຫ້ຕາມຊື່ຕຳແໜ່ງ</p>
             <button type="button" class="btn btn--ghost btn--sm" id="add-position-btn">+ ເພີ່ມຕຳແໜ່ງ</button>
           </div>
           <div id="positions-container"><!-- position blocks --></div>
@@ -237,14 +368,20 @@
 
         <label class="check-inline">
           <input type="checkbox" id="branch-all-positions">
-          <span>ເປີດຮັບທຸກຕຳແໜ່ງ (ໃຊ້ກັບສຳນັກງານໃຫຍ່ — ບໍ່ຕ້ອງເລືອກຕຳແໜ່ງດ້ານລຸ່ມ)</span>
+          <span>ສະແດງທຸກຕຳແໜ່ງໃນຄັງຢູ່ສາຂານີ້ (ໃຊ້ກັບສຳນັກງານໃຫຍ່) — ຕຳແໜ່ງທີ່ບໍ່ໄດ້ໃສ່ຈຳນວນຢູ່ລຸ່ມນີ້ ຈະຖືວ່າ "ຝາກປະຫວັດ"</span>
         </label>
 
         <div class="positions-editor" id="branch-positions-wrap">
           <div class="positions-editor-head">
-            <h4>ຕຳແໜ່ງທີ່ເປີດຮັບໃນສາຂານີ້</h4>
+            <h4>ຕຳແໜ່ງຂອງສາຂານີ້</h4>
+            <div class="field-block-actions">
+              <button type="button" class="btn btn--ghost btn--sm" id="add-branch-all-positions-btn">+ ເພີ່ມທຸກຕຳແໜ່ງໃນຄັງ</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="add-branch-opening-btn">+ ເພີ່ມຕຳແໜ່ງ</button>
+            </div>
           </div>
-          <div id="branch-positions-container"><!-- checkbox list, rendered by admin.js --></div>
+          <p class="settings-sub">ໃສ່ <b>0</b> ຖ້າສາຂາມີຕຳແໜ່ງນີ້ ແຕ່ຍັງບໍ່ເປີດຮັບ (ໄວ້ໃຫ້ຝາກປະຫວັດ) — ໃສ່ຕົວເລກ 1 ຂຶ້ນໄປ ຖ້າຕ້ອງການຮັບສະໝັກແທ້</p>
+          <p class="form-status" id="branch-openings-summary" role="status"></p>
+          <div id="branch-positions-container"><!-- dynamic rows rendered by admin.js --></div>
         </div>
 
         <div class="form-actions">

@@ -12,7 +12,7 @@ import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getStorage, ref, deleteObject
+  getStorage, ref, deleteObject, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 import {
   firebaseConfig, HR_NOTIFY_EMAILS, APPLICATIONS_COLLECTION,
@@ -50,26 +50,51 @@ function setStatus(el, msg, kind = ""){
    ========================================================================== */
 const loginView = $("login-view");
 const adminView = $("admin-view");
+const deniedView = $("denied-view");
 const logoutBtn = $("logout-btn");
+const STAFF_COLLECTION = "staff";
+let myRole = "admin";
+
+/* ບົດບາດຂອງບັນຊີທີ່ລ໋ອກອິນ — ບໍ່ມີ staff doc = ຖືເປັນ admin (ບັນຊີເກົ່າ) */
+async function fetchMyRole(uid){
+  try {
+    const snap = await getDoc(doc(db, STAFF_COLLECTION, uid));
+    if(snap.exists() && snap.data().role) return snap.data().role;
+  } catch (err){ console.warn("ອ່ານບົດບາດບໍ່ໄດ້:", err); }
+  return "admin";
+}
 
 if(FIREBASE_NOT_CONFIGURED){
   loginView.hidden = false;
   setStatus($("login-status"), "ຍັງບໍ່ໄດ້ຕັ້ງຄ່າ Firebase — ແກ້ໄຂ firebase-config.js ກ່ອນ (ເບິ່ງ README.md)", "err");
 }
 
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   if(FIREBASE_NOT_CONFIGURED) return;
   if(user){
+    myRole = await fetchMyRole(user.uid);
+    if(myRole !== "admin"){
+      /* ບັນຊີຜູ້ສຳພາດ — ບໍ່ໃຫ້ເຂົ້າແຜງຄວບຄຸມ (rules ກໍ່ບລັອກໄວ້ອີກຊັ້ນ) */
+      loginView.hidden = true;
+      adminView.hidden = true;
+      deniedView.hidden = false;
+      logoutBtn.hidden = false;
+      $("denied-email").textContent = user.email || "(ບໍ່ຮູ້ອີເມວ)";
+      return;
+    }
     loginView.hidden = true;
+    deniedView.hidden = true;
     adminView.hidden = false;
     logoutBtn.hidden = false;
     $("admin-email").textContent = user.email || "(ບໍ່ຮູ້ອີເມວ)";
     loadDepartments().then(loadBranches);
     loadApplications();
     loadSettings();
+    loadStaff();
   } else {
     loginView.hidden = false;
     adminView.hidden = true;
+    deniedView.hidden = true;
     logoutBtn.hidden = true;
   }
 });
@@ -179,7 +204,8 @@ function renderDepartmentList(){
           <div class="dept-admin-meta">
             <span>ລຳດັບ: ${d.order ?? "-"}</span>
             <span>${(d.responsibilities || []).length} ພາລະກິດ</span>
-            <span>ເປີດຮັບ ${(d.positions || []).filter(p => p.open !== false).length} / ${(d.positions || []).length} ຕຳແໜ່ງ</span>
+            <span>${(d.positions || []).length} ຕຳແໜ່ງໃນຄັງ (ໃຊ້ງານ ${(d.positions || []).filter(p => p.active !== false).length})</span>
+            <span>🖼️ ໃສ່ຮູບເອງແລ້ວ ${(d.positions || []).filter(p => p.image).length} ຕຳແໜ່ງ</span>
           </div>
         </div>
       </div>
@@ -251,8 +277,8 @@ function positionBlockHtml(p = {}){
         <span class="position-edit-label">ຕຳແໜ່ງ</span>
         <div class="field-block-actions">
           <label class="check-inline">
-            <input type="checkbox" class="pos-open" ${p.open === false ? "" : "checked"}>
-            <span>ເປີດຮັບສະໝັກ</span>
+            <input type="checkbox" class="pos-active" ${p.active === false ? "" : "checked"}>
+            <span>ໃຊ້ງານຢູ່ (ຕິກອອກ = ເຊື່ອງທຸກສາຂາ)</span>
           </label>
           <button type="button" class="btn btn--danger btn--sm" data-remove-position>ລຶບຕຳແໜ່ງນີ້</button>
         </div>
@@ -271,6 +297,30 @@ function positionBlockHtml(p = {}){
         <span>ຄຳອະທິບາຍຕຳແໜ່ງ</span>
         <textarea class="pos-description" rows="2">${escapeHtml(p.description || "")}</textarea>
       </label>
+
+      <!-- ຮູບປະກອບຕຳແໜ່ງ — ຈະສະແດງເທິງບັດຕຳແໜ່ງໃນໜ້າເວັບສາທາລະນະ -->
+      <div class="field">
+        <span>ຮູບປະກອບຕຳແໜ່ງ</span>
+        <div class="pos-image-row">
+          <div class="pos-image-preview" data-pos-preview>
+            ${p.image
+              ? `<img src="${escapeHtml(p.image)}" alt="">`
+              : `<span class="pos-image-empty">ຍັງບໍ່ມີຮູບ<br>(ລະບົບຈະເລືອກໃຫ້ອັດຕະໂນມັດ)</span>`}
+          </div>
+          <div class="pos-image-controls">
+            <input type="url" class="pos-image" value="${escapeHtml(p.image || "")}"
+                   placeholder="ວາງລິ້ງຮູບ https://... ຫຼື ກົດອັບໂຫຼດຮູບ">
+            <div class="field-block-actions">
+              <label class="btn btn--ghost btn--sm pos-upload-label">
+                ອັບໂຫຼດຮູບ
+                <input type="file" class="pos-image-file" accept="image/*" hidden>
+              </label>
+              <button type="button" class="btn btn--ghost btn--sm" data-pos-image-clear>ລຶບຮູບ</button>
+              <span class="form-status pos-image-status"></span>
+            </div>
+          </div>
+        </div>
+      </div>
       <label class="field">
         <span>ພາລະໜ້າທີ່ໂດຍລະອຽດ (1 ແຖວ = 1 ຂໍ້)</span>
         <textarea class="pos-duties" rows="5">${escapeHtml(duties)}</textarea>
@@ -284,6 +334,67 @@ function addPositionBlock(p){
   const block = positionsContainer.lastElementChild;
   block.querySelector("[data-remove-position]").addEventListener("click", () => {
     if(confirm("ລຶບຕຳແໜ່ງນີ້ອອກຈາກຟອມ? (ຈະມີຜົນເມື່ອກົດບັນທຶກພະແນກ)")) block.remove();
+  });
+  bindPositionImage(block);
+}
+
+/* ==========================================================================
+   ຮູບປະກອບຕຳແໜ່ງ
+   ເກັບເປັນລິ້ງ (URL) ໄວ້ໃນ position.image
+   ໃສ່ໄດ້ 2 ວິທີ: ວາງລິ້ງເອງ ຫຼື ອັບໂຫຼດຮູບຂຶ້ນ Firebase Storage
+   ຖ້າປະຫວ່າງໄວ້ ໜ້າເວັບຈະເລືອກຮູບໃຫ້ອັດຕະໂນມັດຕາມຊື່ຕຳແໜ່ງ
+   ========================================================================== */
+const MAX_POSITION_IMAGE = 3 * 1024 * 1024;   // 3 MB
+
+function setPositionPreview(block, url){
+  const box = block.querySelector("[data-pos-preview]");
+  box.innerHTML = url
+    ? `<img src="${escapeHtml(url)}" alt="">`
+    : `<span class="pos-image-empty">ຍັງບໍ່ມີຮູບ<br>(ລະບົບຈະເລືອກໃຫ້ອັດຕະໂນມັດ)</span>`;
+}
+
+function bindPositionImage(block){
+  const urlInput = block.querySelector(".pos-image");
+  const fileInput = block.querySelector(".pos-image-file");
+  const statusEl = block.querySelector(".pos-image-status");
+
+  urlInput.addEventListener("input", () => setPositionPreview(block, urlInput.value.trim()));
+
+  block.querySelector("[data-pos-image-clear]").addEventListener("click", () => {
+    urlInput.value = "";
+    setPositionPreview(block, "");
+    setStatus(statusEl, "ລຶບຮູບແລ້ວ — ກົດ \"ບັນທຶກພະແນກ\" ເພື່ອຢືນຢັນ", "ok");
+  });
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if(!file) return;
+    if(!file.type.startsWith("image/")){
+      setStatus(statusEl, "ກະລຸນາເລືອກໄຟລ໌ຮູບເທົ່ານັ້ນ", "err");
+      fileInput.value = "";
+      return;
+    }
+    if(file.size > MAX_POSITION_IMAGE){
+      setStatus(statusEl, "ຮູບໃຫຍ່ເກີນ 3 MB ກະລຸນາຫຍໍ້ຮູບກ່ອນ", "err");
+      fileInput.value = "";
+      return;
+    }
+    setStatus(statusEl, "ກຳລັງອັບໂຫຼດຮູບ...");
+    try {
+      const posId = block.dataset.posId || genId("pos");
+      const safeName = file.name.replace(/[^\w.\-]/g, "_");
+      const path = `position-images/${posId}-${Date.now()}-${safeName}`;
+      const snap = await uploadBytes(ref(storage, path), file);
+      const url = await getDownloadURL(snap.ref);
+      urlInput.value = url;
+      setPositionPreview(block, url);
+      setStatus(statusEl, "ອັບໂຫຼດສຳເລັດ — ຢ່າລືມກົດ \"ບັນທຶກພະແນກ\"", "ok");
+    } catch (err){
+      console.error(err);
+      setStatus(statusEl, "ອັບໂຫຼດບໍ່ສຳເລັດ: " + err.message, "err");
+    } finally {
+      fileInput.value = "";
+    }
   });
 }
 
@@ -333,9 +444,10 @@ $("dept-form").addEventListener("submit", async e => {
   const positions = [...positionsContainer.querySelectorAll(".position-edit-block")].map(block => ({
     id: block.dataset.posId || genId("pos"),
     title: block.querySelector(".pos-title").value.trim(),
-    open: block.querySelector(".pos-open").checked,
+    active: block.querySelector(".pos-active").checked,
     type: block.querySelector(".pos-type").value.trim() || "ເຕັມເວລາ",
     description: block.querySelector(".pos-description").value.trim(),
+    image: block.querySelector(".pos-image").value.trim(),
     duties: linesToArray(block.querySelector(".pos-duties").value)
   })).filter(p => p.title);
 
@@ -358,6 +470,7 @@ $("dept-form").addEventListener("submit", async e => {
     }
     setStatus($("dept-form-status"), "ບັນທຶກຮຽບຮ້ອຍ", "ok");
     await loadDepartments();
+    await loadBranches();
     setTimeout(closeDeptModal, 700);
   } catch (err){
     console.error(err);
@@ -368,8 +481,12 @@ $("dept-form").addEventListener("submit", async e => {
 });
 
 /* ==========================================================================
-   BRANCHES — สาขา/แขวง: จัดการรายชื่อสาขา และเลือกว่าแต่ละสาขาเปิดรับ
-   ตำแหน่งใดบ้าง (อ้างอิง position.id จากชุดตำแหน่งของแผนกต่างๆ ด้านบน)
+   BRANCHES — ສາຂາ/ແຂວງ  (ຈັດການແຍກ "ໃຜສາຂາມັນ")
+   ແຕ່ລະສາຂາເລືອກເອງວ່າ "ມີ" ຕຳແໜ່ງໃດແດ່ ໂດຍອ້າງອີງ position.id ຈາກຄັງຕຳແໜ່ງ
+   ຂອງທັງອົງກອນ (ແທັບ "ຈັດການພະແນກ") ແລ້ວໃສ່ຈຳນວນອັດຕາທີ່ຕ້ອງການຮັບ
+     count = 0  →  ສາຂາມີຕຳແໜ່ງນີ້ ແຕ່ຍັງບໍ່ເປີດຮັບ (ຜູ້ສົນໃຈຝາກປະຫວັດໄວ້ໄດ້)
+     count ≥ 1  →  ເປີດຮັບ N ອັດຕາ
+   ຕຳແໜ່ງທີ່ບໍ່ໄດ້ເພີ່ມໄວ້ໃນສາຂາ = ຈະບໍ່ສະແດງໃນສາຂານັ້ນເລີຍ
    ========================================================================== */
 let branches = [];
 
@@ -379,11 +496,65 @@ async function loadBranches(){
   try {
     const snap = await getDocs(query(collection(db, BRANCHES_COLLECTION), orderBy("order")));
     branches = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    branches.forEach(migrateBranchShape);
     renderBranchList();
   } catch (err){
     console.error(err);
     listEl.innerHTML = `<p class="admin-error">ໂຫຼດຂໍ້ມູນບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
   }
+}
+
+/* ຂໍ້ມູນເກົ່າທີ່ເກັບເປັນ positionIds: ["pos1","pos2"] → ແປງເປັນ openings ອັດຕະໂນມັດ
+   (ຄ່າເລີ່ມຕົ້ນ count = 0 ໝາຍເຖິງ "ມີຕຳແໜ່ງ ແຕ່ຍັງບໍ່ເປີດຮັບ") */
+/* ຂໍ້ມູນເກົ່າທີ່ເກັບເປັນ positionIds: ["pos1","pos2"] → ແປງເປັນ openings ອັດຕະໂນມັດ
+   (ຄ່າເລີ່ມຕົ້ນ count = 0 ໝາຍເຖິງ "ມີຕຳແໜ່ງ ແຕ່ຍັງບໍ່ເປີດຮັບ") */
+function migrateBranchShape(b){
+  if(!Array.isArray(b.openings)){
+    b.openings = Array.isArray(b.positionIds)
+      ? b.positionIds.map(id => ({ posId: id, count: 0, countM: 0, countF: 0, countAny: 0, deadline: "" }))
+      : [];
+  }
+  b.openings = b.openings
+    .filter(op => op && op.posId)
+    .map(op => {
+      const totalCount = Math.max(0, Number(op.count) || 0);
+      return { 
+        posId: op.posId, 
+        count: totalCount,
+        countM: Math.max(0, Number(op.countM) || 0),
+        countF: Math.max(0, Number(op.countF) || 0),
+        // ถ้าเป็นข้อมูลเก่า (ไม่มี countM, countF) จะเอายอดรวมไปใส่ใน countAny
+        countAny: op.countAny !== undefined ? Math.max(0, Number(op.countAny) || 0) : ((!op.countM && !op.countF) ? totalCount : 0),
+        deadline: op.deadline || ""  
+      };
+    });
+  return b;
+}
+
+/* ---------- ຄັງຕຳແໜ່ງທັງອົງກອນ (ດຶງມາຈາກທຸກພະແນກ) ---------- */
+function catalogPositions(){
+  const out = [];
+  departments.forEach(d => (d.positions || []).forEach(p => {
+    if(p.active === false) return;
+    out.push({ ...p, deptName: d.name, deptCode: d.code });
+  }));
+  return out;
+}
+
+function findPosition(posId){
+  for(const d of departments){
+    const p = (d.positions || []).find(x => x.id === posId);
+    if(p) return { ...p, deptName: d.name, deptCode: d.code };
+  }
+  return null;
+}
+
+function branchSummaryText(b){
+  const ops = b.openings || [];
+  const listed = b.allPositions ? catalogPositions().length : ops.length;
+  const hiring = ops.filter(o => Number(o.count) > 0).length;
+  const seats  = ops.reduce((sum, o) => sum + (Number(o.count) || 0), 0);
+  return `ມີ ${listed} ຕຳແໜ່ງ · ເປີດຮັບ ${hiring} ຕຳແໜ່ງ (${seats} ອັດຕາ)`;
 }
 
 function renderBranchList(){
@@ -404,7 +575,8 @@ function renderBranchList(){
           <h3>${escapeHtml(b.name || "(ບໍ່ມີຊື່)")}</h3>
           <div class="dept-admin-meta">
             <span>ລຳດັບ: ${b.order ?? "-"}</span>
-            <span>${b.allPositions ? "ເປີດຮັບທຸກຕຳແໜ່ງ" : `${(b.positionIds || []).length} ຕຳແໜ່ງທີ່ເລືອກ`}</span>
+            <span>${branchSummaryText(b)}</span>
+            ${b.allPositions ? `<span>ສະແດງທຸກຕຳແໜ່ງໃນຄັງ</span>` : ""}
           </div>
         </div>
       </div>
@@ -447,7 +619,7 @@ async function moveBranch(docId, dir){
 async function deleteBranch(docId){
   const b = branches.find(x => x.docId === docId);
   if(!b) return;
-  const ok = confirm(`ຢືນຢັນລຶບສາຂາ "${b.name}" ?\nໜ້າເວັບສາທາລະນະຈະບໍ່ສະແດງແທັບສາຂານີ້ອີກ`);
+  const ok = confirm(`ຢືນຢັນລຶບສາຂາ "${b.name}" ?\nໜ້າເວັບສາທາລະນະຈະບໍ່ສະແດງແທັບສາຂານີ້ອີກ\n(ຄັງຕຳແໜ່ງຂອງພະແນກຈະບໍ່ຖືກລຶບ)`);
   if(!ok) return;
   try {
     await deleteDoc(doc(db, BRANCHES_COLLECTION, docId));
@@ -459,37 +631,137 @@ async function deleteBranch(docId){
   }
 }
 
-/* ---------- ตัวเลือกตำแหน่ง (checklist แยกตามพะแนก) ---------- */
-function branchPositionsPickerHtml(selectedIds){
-  const selected = new Set(selectedIds || []);
-  return departments.map(d => {
-    const positions = d.positions || [];
-    if(!positions.length) return "";
-    return `
-      <div class="branch-position-group">
-        <h5>${escapeHtml(d.name || d.code || "")}</h5>
-        <div class="branch-position-list">
-          ${positions.map(p => `
-            <label class="check-inline">
-              <input type="checkbox" class="branch-pos-check" value="${escapeHtml(p.id)}" ${selected.has(p.id) ? "checked" : ""}>
-              <span>${escapeHtml(p.title)}${p.open === false ? " (ຍັງບໍ່ເປີດຮັບ)" : ""}</span>
-            </label>
-          `).join("")}
-        </div>
-      </div>
-    `;
-  }).join("") || `<p class="admin-empty-sub">ຍັງບໍ່ມີຕຳແໜ່ງໃນລະບົບ — ໄປເພີ່ມຕຳແໜ່ງຈາກແທັບ "ຈັດການພະແນກ" ກ່ອນ</p>`;
-}
-
+/* ==========================================================================
+   BRANCH MODAL — ເລືອກຕຳແໜ່ງທີ່ສາຂານີ້ມີ + ໃສ່ຈຳນວນອັດຕາ
+   ========================================================================== */
 const branchOverlay = $("branch-overlay");
 const branchAllPositionsCheck = $("branch-all-positions");
-const branchPositionsWrap = $("branch-positions-wrap");
+const branchPositionsContainer = $("branch-positions-container");
 
-function updateBranchPositionsWrapState(){
-  branchPositionsWrap.classList.toggle("is-disabled", branchAllPositionsCheck.checked);
-  branchPositionsWrap.querySelectorAll("input").forEach(el => { el.disabled = branchAllPositionsCheck.checked; });
+/* <option> ຂອງຕຳແໜ່ງ ຈັດກຸ່ມຕາມພະແນກ */
+function getPositionOptionsHtml(selectedPosId = ""){
+  let html = '<option value="">— ເລືອກຕຳແໜ່ງ —</option>';
+  departments.forEach(d => {
+    const list = (d.positions || []).filter(p => p.active !== false);
+    if(!list.length) return;
+    html += `<optgroup label="${escapeHtml(d.name || d.code || "")}">`;
+    list.forEach(p => {
+      const sel = (p.id === selectedPosId) ? "selected" : "";
+      html += `<option value="${escapeHtml(p.id)}" ${sel}>${escapeHtml(p.title)}</option>`;
+    });
+    html += `</optgroup>`;
+  });
+  return html;
 }
-branchAllPositionsCheck.addEventListener("change", updateBranchPositionsWrapState);
+
+function branchOpeningRowHtml(op = {}){
+  const orphan = op.posId && !findPosition(op.posId);
+  // ดึงค่าเดิมมาแสดง ถ้าเป็นข้อมูลเก่าที่มีแค่ count ระบบจะนำไปใส่ในช่อง 'ชาย-หญิง ໄດ້ໝົດ'
+  const m = Math.max(0, Number(op.countM) || 0);
+  const f = Math.max(0, Number(op.countF) || 0);
+  const any = (m === 0 && f === 0 && !op.countAny && op.count > 0) 
+              ? op.count 
+              : Math.max(0, Number(op.countAny) || 0);
+
+  return `
+    <div class="branch-opening-block field-grid" style="margin-bottom:1rem;border-bottom:1px dashed #e2e8f0;padding-bottom:1rem;display:flex;flex-direction:column;gap:10px;">
+      
+      <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;align-items:end;">
+        <label class="field" style="margin-bottom:0;">
+          <span>ຕຳແໜ່ງ <em>*</em></span>
+          <select class="bo-pos-id">
+            ${getPositionOptionsHtml(op.posId)}
+            ${orphan ? `<option value="${escapeHtml(op.posId)}" selected>(ຕຳແໜ່ງນີ້ຖືກລຶບອອກຈາກຄັງແລ້ວ)</option>` : ""}
+          </select>
+        </label>
+        <label class="field" style="margin-bottom:0;">
+          <span>ວັນທີປິດຮັບ</span>
+          <input type="date" class="bo-deadline" value="${escapeHtml(op.deadline || "")}">
+        </label>
+        <button type="button" class="btn btn--danger" data-remove-opening style="margin-bottom:2px;">ລຶບ</button>
+      </div>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
+        <label class="field" style="margin-bottom:0;">
+          <span style="font-size:12px;">ຮັບເພົດຊາຍ (ຄົນ)</span>
+          <input type="number" class="bo-count-m" value="${m}" min="0" step="1">
+        </label>
+        <label class="field" style="margin-bottom:0;">
+          <span style="font-size:12px;">ຮັບເພົດຍິງ (ຄົນ)</span>
+          <input type="number" class="bo-count-f" value="${f}" min="0" step="1">
+        </label>
+        <label class="field" style="margin-bottom:0;">
+          <span style="font-size:12px;">ຊາຍ-ຍິງ ໄດ້ໝົດ (ຄົນ)</span>
+          <input type="number" class="bo-count-any" value="${any}" min="0" step="1">
+        </label>
+      </div>
+
+    </div>
+  `;
+}
+
+function addOpeningRow(op = {}){
+  branchPositionsContainer.insertAdjacentHTML("beforeend", branchOpeningRowHtml(op));
+  const block = branchPositionsContainer.lastElementChild;
+  block.querySelector("[data-remove-opening]").addEventListener("click", () => {
+    block.remove();
+    updateBranchOpeningsSummary();
+  });
+  // ตรวจจับการเปลี่ยนค่าของ 3 ช่องใหม่ เพื่อบวกรวมยอดทันที
+  block.querySelector(".bo-count-m").addEventListener("input", updateBranchOpeningsSummary);
+  block.querySelector(".bo-count-f").addEventListener("input", updateBranchOpeningsSummary);
+  block.querySelector(".bo-count-any").addEventListener("input", updateBranchOpeningsSummary);
+  block.querySelector(".bo-pos-id").addEventListener("change", updateBranchOpeningsSummary);
+  updateBranchOpeningsSummary();
+  return block;
+}
+
+function currentOpeningsFromDom(){
+  const seen = new Set();
+  return [...branchPositionsContainer.querySelectorAll(".branch-opening-block")]
+    .map(block => {
+      const m = Math.max(0, Number(block.querySelector(".bo-count-m").value) || 0);
+      const f = Math.max(0, Number(block.querySelector(".bo-count-f").value) || 0);
+      const any = Math.max(0, Number(block.querySelector(".bo-count-any").value) || 0);
+      return {
+        posId: block.querySelector(".bo-pos-id").value,
+        countM: m,
+        countF: f,
+        countAny: any,
+        count: m + f + any, // บวกรวมยอดอัตโนมัติ เพื่อให้ระบบเดิมทำงานต่อได้
+        deadline: block.querySelector(".bo-deadline").value.trim() 
+      };
+    })
+    .filter(op => {
+      if(!op.posId || seen.has(op.posId)) return false; 
+      seen.add(op.posId);
+      return true;
+    });
+}
+
+function updateBranchOpeningsSummary(){
+  const el = $("branch-openings-summary");
+  if(!el) return;
+  const ops = currentOpeningsFromDom();
+  const hiring = ops.filter(o => o.count > 0).length;
+  const seats  = ops.reduce((s, o) => s + o.count, 0);
+  el.textContent = `ລວມ ${ops.length} ຕຳແໜ່ງ · ເປີດຮັບ ${hiring} ຕຳແໜ່ງ (${seats} ອັດຕາ) · ອີກ ${ops.length - hiring} ຕຳແໜ່ງໄວ້ຝາກປະຫວັດ`;
+}
+
+/* ປຸ່ມ "+ ເພີ່ມການເປີດຮັບ" */
+$("add-branch-opening-btn").addEventListener("click", () => addOpeningRow({}));
+
+/* ປຸ່ມ "+ ເພີ່ມທຸກຕຳແໜ່ງໃນຄັງ" — ໃສ່ໃຫ້ຄົບທຸກຕຳແໜ່ງດ້ວຍ count = 0 ແລ້ວຄ່ອຍປັບເອງ */
+$("add-branch-all-positions-btn")?.addEventListener("click", () => {
+  const already = new Set(currentOpeningsFromDom().map(o => o.posId));
+  const missing = catalogPositions().filter(p => !already.has(p.id));
+  if(!missing.length){
+    setStatus($("branch-form-status"), "ຄົບທຸກຕຳແໜ່ງໃນຄັງແລ້ວ", "ok");
+    return;
+  }
+  missing.forEach(p => addOpeningRow({ posId: p.id, count: 0 }));
+  setStatus($("branch-form-status"), `ເພີ່ມອີກ ${missing.length} ຕຳແໜ່ງ (ຈຳນວນ = 0) — ປັບຈຳນວນແລ້ວກົດບັນທຶກ`, "ok");
+});
 
 function openBranchModal(docId = null){
   const b = docId ? branches.find(x => x.docId === docId) : null;
@@ -499,8 +771,11 @@ function openBranchModal(docId = null){
   $("branch-name").value = b?.name || "";
   $("branch-order").value = b?.order ?? (branches.length + 1);
   branchAllPositionsCheck.checked = !!b?.allPositions;
-  $("branch-positions-container").innerHTML = branchPositionsPickerHtml(b?.positionIds);
-  updateBranchPositionsWrapState();
+
+  branchPositionsContainer.innerHTML = "";
+  (b?.openings || []).forEach(op => addOpeningRow(op));
+  updateBranchOpeningsSummary();
+
   setStatus($("branch-form-status"), "");
   branchOverlay.hidden = false;
   document.body.style.overflow = "hidden";
@@ -517,6 +792,7 @@ $("branch-close").addEventListener("click", closeBranchModal);
 branchOverlay.addEventListener("click", e => { if(e.target === branchOverlay) closeBranchModal(); });
 document.addEventListener("keydown", e => { if(e.key === "Escape" && !branchOverlay.hidden) closeBranchModal(); });
 
+/* ບັນທຶກສາຂາ — ມີ handler ອັນດຽວເທົ່ານັ້ນ (ຢ່າເພີ່ມອັນທີສອງ ຈະທັບກັນເອງ) */
 $("branch-form").addEventListener("submit", async e => {
   e.preventDefault();
   const docId = $("branch-doc-id").value;
@@ -527,15 +803,13 @@ $("branch-form").addEventListener("submit", async e => {
     return;
   }
 
-  const allPositions = branchAllPositionsCheck.checked;
-  const positionIds = allPositions ? [] : [...$("branch-positions-container").querySelectorAll(".branch-pos-check:checked")].map(el => el.value);
-
+  const openings = currentOpeningsFromDom();
   const data = {
     code: code.toUpperCase(),
     name,
     order: Number($("branch-order").value) || branches.length + 1,
-    allPositions,
-    positionIds
+    allPositions: branchAllPositionsCheck.checked,
+    openings
   };
 
   $("branch-save").disabled = true;
@@ -546,7 +820,8 @@ $("branch-form").addEventListener("submit", async e => {
     } else {
       await addDoc(collection(db, BRANCHES_COLLECTION), data);
     }
-    setStatus($("branch-form-status"), "ບັນທຶກຮຽບຮ້ອຍ", "ok");
+    const seats = openings.reduce((s, o) => s + o.count, 0);
+    setStatus($("branch-form-status"), `ບັນທຶກຮຽບຮ້ອຍ (${openings.length} ຕຳແໜ່ງ · ${seats} ອັດຕາ)`, "ok");
     await loadBranches();
     setTimeout(closeBranchModal, 700);
   } catch (err){
@@ -568,6 +843,68 @@ const STATUS_OPTIONS = [
   { value: "rejected",    label: "ບໍ່ຜ່ານ" }
 ];
 let applications = [];
+const NO_BRANCH = "__none__";   // ໃບສະໝັກເກົ່າທີ່ບໍ່ໄດ້ບັນທຶກສາຂາໄວ້
+const appFilters = { branch: "", dept: "", status: "", q: "" };
+
+/* ຊື່ສາຂາ / ພະແນກ ຂອງໃບສະໝັກ (ຮອງຮັບຂໍ້ມູນເກົ່າທີ່ບໍ່ມີຟິວ branch) */
+function appBranchKey(a){ return (a.branch || "").trim() || NO_BRANCH; }
+function appBranchLabel(a){ return (a.branch || "").trim() || "ບໍ່ໄດ້ລະບຸສາຂາ"; }
+
+function filteredApplications(){
+  const q = appFilters.q.trim().toLowerCase();
+  return applications.filter(a => {
+    if(appFilters.branch && appBranchKey(a) !== appFilters.branch) return false;
+    if(appFilters.dept && (a.department || "") !== appFilters.dept) return false;
+    if(appFilters.status && (a.status || "new") !== appFilters.status) return false;
+    if(q){
+      const hay = [a.name, a.email, a.phone, a.position, a.department, a.branch]
+        .filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ເຕີມຕົວເລືອກໃນຕົວກອງ ຈາກຂໍ້ມູນຈິງທີ່ມີຢູ່ + ລາຍຊື່ສາຂາໃນລະບົບ */
+function renderAppFilterOptions(){
+  const branchCounts = new Map();
+  const deptCounts = new Map();
+  applications.forEach(a => {
+    const bk = appBranchKey(a);
+    branchCounts.set(bk, (branchCounts.get(bk) || 0) + 1);
+    const d = a.department || "";
+    if(d) deptCounts.set(d, (deptCounts.get(d) || 0) + 1);
+  });
+  /* ສາຂາທີ່ມີໃນລະບົບ ແຕ່ຍັງບໍ່ມີໃບສະໝັກ ກໍ່ໃຫ້ເລືອກໄດ້ (ຈະສະແດງ 0) */
+  (branches || []).forEach(b => {
+    if(b.name && !branchCounts.has(b.name)) branchCounts.set(b.name, 0);
+  });
+
+  const branchSel = $("filter-branch");
+  branchSel.innerHTML = `<option value="">ທຸກສາຂາ (${applications.length})</option>` +
+    [...branchCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, n]) => {
+        const label = key === NO_BRANCH ? "ບໍ່ໄດ້ລະບຸສາຂາ" : key;
+        return `<option value="${escapeHtml(key)}">${escapeHtml(label)} (${n})</option>`;
+      }).join("");
+  branchSel.value = appFilters.branch;
+
+  const deptSel = $("filter-dept");
+  deptSel.innerHTML = `<option value="">ທຸກພະແນກ</option>` +
+    [...deptCounts.entries()].sort((a, b) => b[1] - a[1])
+      .map(([key, n]) => `<option value="${escapeHtml(key)}">${escapeHtml(key)} (${n})</option>`).join("");
+  deptSel.value = appFilters.dept;
+
+  const statusSel = $("filter-status");
+  statusSel.innerHTML = `<option value="">ທຸກສະຖານະ</option>` +
+    STATUS_OPTIONS.map(o => {
+      const n = applications.filter(a => (a.status || "new") === o.value).length;
+      return `<option value="${o.value}">${o.label} (${n})</option>`;
+    }).join("");
+  statusSel.value = appFilters.status;
+}
+
 
 async function loadApplications(){
   const listEl = $("apps-list");
@@ -576,6 +913,7 @@ async function loadApplications(){
     const snap = await getDocs(query(collection(db, APPLICATIONS_COLLECTION), orderBy("submittedAt", "desc")));
     applications = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
     $("app-count").textContent = applications.length ? `(${applications.length})` : "";
+    renderAppFilterOptions();
     renderApplications();
   } catch (err){
     console.error(err);
@@ -616,11 +954,23 @@ function renderAttachmentLinks(a){
 
 function renderApplications(){
   const listEl = $("apps-list");
+  const list = filteredApplications();
+  const hasFilter = appFilters.branch || appFilters.dept || appFilters.status || appFilters.q.trim();
+
+  $("apps-filter-summary").textContent = applications.length
+    ? `ສະແດງ ${list.length} ຈາກທັງໝົດ ${applications.length} ໃບສະໝັກ`
+    : "";
+
   if(!applications.length){
     listEl.innerHTML = `<div class="admin-empty"><p>ຍັງບໍ່ມີໃບສະໝັກເຂົ້າມາ</p></div>`;
     return;
   }
-  listEl.innerHTML = applications.map(a => `
+  if(!list.length){
+    listEl.innerHTML = `<div class="admin-empty"><p>ບໍ່ພົບໃບສະໝັກທີ່ກົງກັບຕົວກອງ</p>
+      ${hasFilter ? `<p class="admin-empty-sub">ລອງກົດ "ລ້າງຕົວກອງ" ເພື່ອເບິ່ງທັງໝົດ</p>` : ""}</div>`;
+    return;
+  }
+  listEl.innerHTML = list.map(a => `
     <div class="app-card" data-docid="${escapeHtml(a.docId)}">
       <div class="app-card-main">
         <div class="app-card-top">
@@ -630,6 +980,7 @@ function renderApplications(){
         <p class="app-position">${escapeHtml(a.position)} — ${escapeHtml(a.department)}
           ${a.advanceProfile ? '<span class="app-status" style="background:var(--brass-soft);color:var(--gold-text);margin-left:8px">ຝາກປະຫວັດລ່ວງໜ້າ</span>' : ""}</p>
         <div class="app-meta">
+          <span><b>🏢 ສາຂາ: ${escapeHtml(appBranchLabel(a))}</b></span>
           <span>📧 ${escapeHtml(a.email)}</span>
           <span>📞 ${escapeHtml(a.phone)}</span>
           <span>🕐 ${formatDate(a.submittedAt)}</span>
@@ -658,6 +1009,7 @@ function renderApplications(){
         setStatus($("apps-status"), "ອັບເດດສະຖານະຮຽບຮ້ອຍ", "ok");
         const a = applications.find(x => x.docId === docId);
         if(a) a.status = e.target.value;
+        renderAppFilterOptions();
         renderApplications();
       } catch (err){
         console.error(err);
@@ -689,6 +1041,18 @@ function renderApplications(){
 
 $("reload-apps-btn").addEventListener("click", loadApplications);
 
+/* ---------- ຕົວກອງໃບສະໝັກ ---------- */
+$("filter-branch").addEventListener("change", e => { appFilters.branch = e.target.value; renderApplications(); });
+$("filter-dept").addEventListener("change",   e => { appFilters.dept   = e.target.value; renderApplications(); });
+$("filter-status").addEventListener("change", e => { appFilters.status = e.target.value; renderApplications(); });
+$("filter-search").addEventListener("input",  e => { appFilters.q      = e.target.value; renderApplications(); });
+$("clear-filters-btn").addEventListener("click", () => {
+  appFilters.branch = appFilters.dept = appFilters.status = appFilters.q = "";
+  $("filter-search").value = "";
+  renderAppFilterOptions();
+  renderApplications();
+});
+
 /* ==========================================================================
    SETTINGS — อีเมลแจ้งเตือน HR + ตัวสร้างฟอร์มสมัครงาน
    เก็บใน Firestore: settings/notifications และ settings/applicationForm
@@ -696,21 +1060,92 @@ $("reload-apps-btn").addEventListener("click", loadApplications);
    ========================================================================== */
 let formFields = [];
 
+/* ຊ່ອງລະບົບ 3 ຊ່ອງ — ລຶບບໍ່ໄດ້ ແລະ ປ່ຽນປະເພດບໍ່ໄດ້ (Firestore rules ບັງຄັບໄວ້)
+   ແຕ່ປ່ຽນຊື່ປ້າຍ 2 ພາສາ / ຈັດລຳດັບ / ປັບຄວາມກວ້າງ / ໃສ່ placeholder ໄດ້ */
+const CORE_DEFAULTS = [
+  { id: "core_name",  core: "name",  type: "text",  label_la: "ຊື່ ແລະ ນາມສະກຸນ", label_en: "Full name",    width: "half", required: true, placeholder: "" },
+  { id: "core_email", core: "email", type: "email", label_la: "ອີເມວ",            label_en: "Email",        width: "half", required: true, placeholder: "" },
+  { id: "core_phone", core: "phone", type: "tel",   label_la: "ເບີໂທລະສັບ",       label_en: "Phone number", width: "half", required: true, placeholder: "" }
+];
+const CORE_TITLE = { name: "ຊື່ ແລະ ນາມສະກຸນ", email: "ອີເມວ", phone: "ເບີໂທລະສັບ" };
+
+/* ປະເພດຊ່ອງ — ຕໍ່ຈາກ form-defaults.js ແລ້ວເພີ່ມ email/tel ຖ້າຍັງບໍ່ມີ */
+const ALL_FIELD_TYPES = (() => {
+  const list = Array.isArray(FIELD_TYPES) ? [...FIELD_TYPES] : [{ value: "text", label: "ຂໍ້ຄວາມ" }];
+  const extra = [
+    { value: "email", label: "ອີເມວ" },
+    { value: "tel",   label: "ເບີໂທລະສັບ" }
+  ];
+  extra.forEach(e => { if(!list.some(x => x.value === e.value)) list.push(e); });
+  return list;
+})();
+
+function normalizeFormFields(fields, legacyCore){
+  const list = (Array.isArray(fields) ? fields : []).map(f => ({ ...f }));
+  /* ຂໍ້ມູນເກົ່າມີແຕ່ label ດຽວ — ເຕີມ label_la / width / type ໃຫ້ຄົບ */
+  list.forEach(f => {
+    f.label_la = f.label_la || f.label || "";
+    f.label_en = f.label_en || "";
+    f.label    = f.label_la;
+    f.width    = f.width || "half";
+    f.type     = f.type || "text";
+    f.step     = Math.max(1, Math.min(9, Number(f.step) || 1));
+  });
+  const missing = [];
+  CORE_DEFAULTS.forEach(def => {
+    const found = list.find(f => f.core === def.core);
+    if(found){
+      found.id       = found.id || def.id;
+      found.type     = def.type;
+      found.required = true;
+      found.label_la = found.label_la || found.label || def.label_la;
+      found.label_en = found.label_en || def.label_en;
+      found.width    = found.width || def.width;
+      found.step     = Math.max(1, Math.min(9, Number(found.step) || 1));
+    } else {
+      missing.push({
+        ...def,
+        label_la: (legacyCore && legacyCore[def.core + "_la"]) || def.label_la,
+        label_en: (legacyCore && legacyCore[def.core + "_en"]) || def.label_en
+      });
+    }
+  });
+  missing.forEach(f => { f.step = 1; });
+  return [...missing, ...list];
+}
+
+let stepTitles = [];   // ຫົວຂໍ້ຂອງແຕ່ລະໜ້າ (1 ແຖວ = 1 ໜ້າ)
+
 async function loadSettings(){
+  if(FIREBASE_NOT_CONFIGURED) return;
   try {
-    const [notifSnap, formSnap] = await Promise.all([
+    // 1. ดึงข้อมูลทีเดียว 3 อย่างรวมถึง interviewCriteria ด้วย
+    const [notifSnap, formSnap, critSnap] = await Promise.all([
       getDoc(doc(db, SETTINGS_COLLECTION, "notifications")),
-      getDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"))
+      getDoc(doc(db, SETTINGS_COLLECTION, "applicationForm")),
+      getDoc(doc(db, SETTINGS_COLLECTION, "interviewCriteria")) // <-- โหลดหัวข้อ
     ]);
+
     const emails = (notifSnap.exists() && Array.isArray(notifSnap.data().emails) && notifSnap.data().emails.length)
       ? notifSnap.data().emails
       : HR_NOTIFY_EMAILS;
     $("notify-emails").value = emails.join("\n");
 
-    formFields = (formSnap.exists() && Array.isArray(formSnap.data().fields))
-      ? formSnap.data().fields
-      : structuredClone(DEFAULT_FORM_FIELDS);
+    formFields = formSnap.exists()
+      ? normalizeFormFields(formSnap.data().fields, formSnap.data().coreFields)
+      : normalizeFormFields(structuredClone(DEFAULT_FORM_FIELDS));
+
+    stepTitles = (formSnap.exists() && Array.isArray(formSnap.data().stepTitles))
+      ? formSnap.data().stepTitles : [];
+    $("step-titles").value = stepTitles.join("\n");
+
     renderFormFields();
+
+    // 2. นำข้อมูลหัวข้อคะแนนมาเตรียมแสดงผล
+    const list = critSnap.exists() ? critSnap.data().criteria : null;
+    interviewCriteria = (Array.isArray(list) && list.length) ? list : structuredClone(DEFAULT_CRITERIA);
+    renderCriteria();
+
   } catch (err){
     console.error(err);
     setStatus($("notify-status"), "ໂຫຼດການຕັ້ງຄ່າບໍ່ສຳເລັດ: " + err.message, "err");
@@ -718,6 +1153,32 @@ async function loadSettings(){
 }
 
 /* ---------- อีเมลแจ้งเตือน ---------- */
+/* ປຸ່ມ "ສົ່ງອີເມວທົດສອບ" — ເອີ້ນ /api/notify-application ດ້ວຍ { test: true }
+   ຊ່ວຍກວດວ່າຕັ້ງຄ່າ RESEND_API_KEY / MAIL_FROM ໃນ Vercel ຖືກຕ້ອງແລ້ວຫຼືຍັງ */
+$("test-email-btn").addEventListener("click", async () => {
+  const btn = $("test-email-btn");
+  btn.disabled = true;
+  setStatus($("notify-status"), "ກຳລັງສົ່ງອີເມວທົດສອບ...");
+  try {
+    const res = await fetch("/api/notify-application", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test: true })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(data.ok){
+      setStatus($("notify-status"), `ສົ່ງແລ້ວ ${data.sentTo} ອີເມວ — ກະລຸນາກວດເບິ່ງກ່ອງຈົດໝາຍ (ລວມທັງ Spam)`, "ok");
+    } else {
+      setStatus($("notify-status"), "ສົ່ງບໍ່ສຳເລັດ: " + (data.error || res.status), "err");
+    }
+  } catch (err){
+    setStatus($("notify-status"),
+      "ເອີ້ນ /api/notify-application ບໍ່ໄດ້ — ໜ້ານີ້ຕ້ອງເປີດຜ່ານເວັບຈິງ (Vercel) ບໍ່ແມ່ນ Live Server", "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 $("notify-form").addEventListener("submit", async e => {
   e.preventDefault();
   const emails = $("notify-emails").value
@@ -740,49 +1201,80 @@ $("notify-form").addEventListener("submit", async e => {
   }
 });
 
-/* ---------- ตัวสร้างฟอร์ม ---------- */
+/* ---------- ตัวสร้างฟอร์ม (จัดการทุกช่อง รวมช่องระบบ) ---------- */
 const formFieldsContainer = $("form-fields-container");
 
 function fieldBlockHtml(f, idx, total){
-  const typeOpts = FIELD_TYPES.map(t =>
+  const isCore = !!f.core;
+  const typeOpts = ALL_FIELD_TYPES.map(t =>
     `<option value="${t.value}" ${t.value === f.type ? "selected" : ""}>${t.label}</option>`).join("");
   const isSelect = f.type === "select";
+  const isFile = f.type === "file" || f.type === "image";
   return `
     <div class="position-edit-block form-field-block" data-idx="${idx}">
       <div class="position-edit-head">
-        <span class="position-edit-label">ຊ່ອງກອກທີ ${idx + 1}</span>
+        <span class="position-edit-label">
+          ຊ່ອງທີ ${idx + 1}${isCore ? ` · ຊ່ອງລະບົບ (${escapeHtml(CORE_TITLE[f.core] || f.core)})` : ""}
+        </span>
         <div class="field-block-actions">
           <button type="button" class="btn btn--ghost btn--sm" data-ff-move="up" ${idx === 0 ? "disabled" : ""}>↑</button>
           <button type="button" class="btn btn--ghost btn--sm" data-ff-move="down" ${idx === total - 1 ? "disabled" : ""}>↓</button>
-          <button type="button" class="btn btn--danger btn--sm" data-ff-remove>ລຶບຊ່ອງນີ້</button>
+          ${isCore
+            ? `<span class="form-status">ລຶບບໍ່ໄດ້</span>`
+            : `<button type="button" class="btn btn--danger btn--sm" data-ff-remove>ລຶບຊ່ອງນີ້</button>`}
         </div>
       </div>
+
       <div class="field-grid">
         <label class="field">
-          <span>ຊື່ຊ່ອງ (ສະແດງໃຫ້ຜູ້ສະໝັກເຫັນ) <em>*</em></span>
-          <input type="text" class="ff-label" value="${escapeHtml(f.label || "")}" placeholder="ເຊັ່ນ ລະດັບການສຶກສາ">
+          <span>ຊື່ຊ່ອງ (ພາສາລາວ) <em>*</em></span>
+          <input type="text" class="ff-label-la" value="${escapeHtml(f.label_la || f.label || "")}">
         </label>
         <label class="field">
-          <span>ປະເພດຊ່ອງ</span>
-          <select class="ff-type">${typeOpts}</select>
+          <span>ຊື່ຊ່ອງ (English)</span>
+          <input type="text" class="ff-label-en" value="${escapeHtml(f.label_en || "")}">
         </label>
       </div>
+
       <div class="field-grid">
         <label class="field">
+          <span>ປະເພດຊ່ອງ${isCore ? " (ຊ່ອງລະບົບ ປ່ຽນບໍ່ໄດ້)" : ""}</span>
+          <select class="ff-type" ${isCore ? "disabled" : ""}>${typeOpts}</select>
+        </label>
+        <label class="field">
+          <span>ຢູ່ໜ້າທີ (ຂັ້ນຕອນ)</span>
+          <select class="ff-step">
+            ${[1,2,3,4,5,6,7,8,9].map(n =>
+              `<option value="${n}" ${Number(f.step || 1) === n ? "selected" : ""}>ໜ້າທີ ${n}${
+                (stepTitles[n-1] || "").trim() ? " — " + escapeHtml(stepTitles[n-1].trim()) : ""}</option>`).join("")}
+          </select>
+        </label>
+        <label class="field">
+          <span>ຄວາມກວ້າງໃນຟອມ</span>
+          <select class="ff-width">
+            <option value="half" ${f.width !== "full" ? "selected" : ""}>ເຄິ່ງແຖວ (2 ຊ່ອງຕໍ່ແຖວ)</option>
+            <option value="full" ${f.width === "full" ? "selected" : ""}>ເຕັມແຖວ</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="field-grid">
+        <label class="field ff-placeholder-wrap" ${isFile || isSelect ? "hidden" : ""}>
           <span>ຂໍ້ຄວາມຕົວຢ່າງໃນຊ່ອງ (placeholder)</span>
           <input type="text" class="ff-placeholder" value="${escapeHtml(f.placeholder || "")}">
         </label>
         <label class="field field--check">
           <span>&nbsp;</span>
           <label class="check-inline">
-            <input type="checkbox" class="ff-required" ${f.required ? "checked" : ""}>
-            <span>ບັງຄັບກອກ</span>
+            <input type="checkbox" class="ff-required" ${f.required ? "checked" : ""} ${isCore ? "disabled" : ""}>
+            <span>ບັງຄັບກອກ${isCore ? " (ຊ່ອງລະບົບ ບັງຄັບສະເໝີ)" : ""}</span>
           </label>
         </label>
       </div>
+
       <label class="field ff-options-wrap" ${isSelect ? "" : "hidden"}>
         <span>ຕົວເລືອກ (1 ແຖວ = 1 ຕົວເລືອກ) — ໃຊ້ກັບປະເພດ "ຕົວເລືອກ" ເທົ່ານັ້ນ</span>
-        <textarea class="ff-options" rows="3" placeholder="ປະລິນຍາຕີ&#10;ປະລິນຍາໂທ">${escapeHtml((f.options || []).join("\n"))}</textarea>
+        <textarea class="ff-options" rows="3">${escapeHtml((f.options || []).join("\n"))}</textarea>
       </label>
     </div>
   `;
@@ -791,12 +1283,13 @@ function fieldBlockHtml(f, idx, total){
 function renderFormFields(){
   formFieldsContainer.innerHTML = formFields.length
     ? formFields.map((f, i) => fieldBlockHtml(f, i, formFields.length)).join("")
-    : `<div class="admin-empty"><p>ຍັງບໍ່ມີຊ່ອງກອກເພີ່ມເຕີມ</p><p class="admin-empty-sub">ຟອມຈະເຫຼືອສະເພາະ ຊື່ / ອີເມວ / ເບີໂທລະສັບ — ກົດ "+ ເພີ່ມຊ່ອງກອກ" ເພື່ອເພີ່ມ</p></div>`;
+    : `<div class="admin-empty"><p>ຍັງບໍ່ມີຊ່ອງກອກ</p></div>`;
 
   formFieldsContainer.querySelectorAll(".form-field-block").forEach(block => {
     const idx = Number(block.dataset.idx);
-    block.querySelector("[data-ff-remove]").addEventListener("click", () => {
-      if(!confirm(`ລຶບຊ່ອງ "${formFields[idx].label}" ? (ມີຜົນເມື່ອກົດ "ບັນທຶກຟອມ")`)) return;
+    block.querySelector("[data-ff-remove]")?.addEventListener("click", () => {
+      const nm = formFields[idx].label_la || formFields[idx].label || "";
+      if(!confirm(`ລຶບຊ່ອງ "${nm}" ? (ມີຜົນເມື່ອກົດ "ບັນທຶກຟອມ")`)) return;
       collectFormFieldsFromDom();
       formFields.splice(idx, 1);
       renderFormFields();
@@ -811,9 +1304,11 @@ function renderFormFields(){
       [formFields[idx + 1], formFields[idx]] = [formFields[idx], formFields[idx + 1]];
       renderFormFields();
     });
-    // แสดง/ซ่อนช่อง "ตัวเลือก" ตามประเภทที่เลือก
+    // แสดง/ซ่อนช่อง "ตัวเลือก" และ placeholder ตามประเภทที่เลือก
     block.querySelector(".ff-type").addEventListener("change", e => {
-      block.querySelector(".ff-options-wrap").hidden = e.target.value !== "select";
+      const v = e.target.value;
+      block.querySelector(".ff-options-wrap").hidden = v !== "select";
+      block.querySelector(".ff-placeholder-wrap").hidden = (v === "select" || v === "file" || v === "image");
     });
   });
 }
@@ -821,13 +1316,20 @@ function renderFormFields(){
 function collectFormFieldsFromDom(){
   const blocks = [...formFieldsContainer.querySelectorAll(".form-field-block")];
   if(!blocks.length) return;
+  const snapshot = formFields;
   formFields = blocks.map((block, i) => {
-    const existing = formFields[Number(block.dataset.idx)] || {};
+    const existing = snapshot[Number(block.dataset.idx)] || {};
+    const labelLa = block.querySelector(".ff-label-la").value.trim();
     return {
       id: existing.id || "f" + Date.now().toString(36) + i,
-      label: block.querySelector(".ff-label").value.trim(),
-      type: block.querySelector(".ff-type").value,
-      required: block.querySelector(".ff-required").checked,
+      core: existing.core || null,                       // ຊ່ອງລະບົບຮັກສາເຄື່ອງໝາຍໄວ້
+      label_la: labelLa,
+      label_en: block.querySelector(".ff-label-en").value.trim(),
+      label: labelLa,                                    // ເກັບໄວ້ເຜື່ອໂຄດເກົ່າ
+      type: existing.core ? existing.type : block.querySelector(".ff-type").value,
+      required: existing.core ? true : block.querySelector(".ff-required").checked,
+      width: block.querySelector(".ff-width").value,
+      step: Math.max(1, Math.min(9, Number(block.querySelector(".ff-step").value) || 1)),
       placeholder: block.querySelector(".ff-placeholder").value.trim(),
       options: block.querySelector(".ff-options").value
         .split("\n").map(s => s.trim()).filter(Boolean)
@@ -835,35 +1337,259 @@ function collectFormFieldsFromDom(){
   });
 }
 
+$("step-titles").addEventListener("input", () => {
+  stepTitles = $("step-titles").value.split("\n").map(x => x.trim());
+  collectFormFieldsFromDom();
+  renderFormFields();
+});
+
 $("add-form-field-btn").addEventListener("click", () => {
   collectFormFieldsFromDom();
   formFields.push({
     id: "f" + Date.now().toString(36),
-    label: "", type: "text", required: false, placeholder: "", options: []
+    core: null, label_la: "", label_en: "", label: "",
+    type: "text", required: false, width: "half", placeholder: "", options: [],
+    step: Math.max(1, ...formFields.map(f => Number(f.step) || 1), 1)
   });
   renderFormFields();
-  const blocks = formFieldsContainer.querySelectorAll(".ff-label");
+  const blocks = formFieldsContainer.querySelectorAll(".ff-label-la");
   blocks[blocks.length - 1]?.focus();
 });
 
 $("save-form-fields-btn").addEventListener("click", async () => {
   collectFormFieldsFromDom();
-  const empty = formFields.find(f => !f.label);
+  formFields = normalizeFormFields(formFields);   // ກັນຊ່ອງລະບົບຫາຍ
+  const empty = formFields.find(f => !f.label_la);
   if(empty){
-    setStatus($("form-fields-status"), "ທຸກຊ່ອງຕ້ອງມີ \"ຊື່ຊ່ອງ\" — ກອກໃຫ້ຄົບກ່ອນບັນທຶກ", "err");
+    setStatus($("form-fields-status"), "ທຸກຊ່ອງຕ້ອງມີ \"ຊື່ຊ່ອງ (ພາສາລາວ)\" — ກອກໃຫ້ຄົບກ່ອນບັນທຶກ", "err");
     return;
   }
   const badSelect = formFields.find(f => f.type === "select" && !f.options.length);
   if(badSelect){
-    setStatus($("form-fields-status"), `ຊ່ອງ "${badSelect.label}" ເປັນປະເພດຕົວເລືອກ ແຕ່ຍັງບໍ່ໄດ້ໃສ່ຕົວເລືອກ`, "err");
+    setStatus($("form-fields-status"), `ຊ່ອງ "${badSelect.label_la}" ເປັນປະເພດຕົວເລືອກ ແຕ່ຍັງບໍ່ໄດ້ໃສ່ຕົວເລືອກ`, "err");
     return;
   }
   try {
-    await setDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"), { fields: formFields });
-    setStatus($("form-fields-status"), `ບັນທຶກຟອມຮຽບຮ້ອຍ (${formFields.length} ຊ່ອງ) — ໜ້າເວັບສາທາລະນະໃຊ້ຟອມໃໝ່ທັນທີ`, "ok");
+    stepTitles = $("step-titles").value.split("\n").map(x => x.trim());
+    while(stepTitles.length && !stepTitles[stepTitles.length - 1]) stepTitles.pop();
+    await setDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"),
+      { fields: formFields, stepTitles }, { merge: true });
+    const stepCount = new Set(formFields.map(f => Number(f.step) || 1)).size;
+    setStatus($("form-fields-status"),
+      `ບັນທຶກຟອມຮຽບຮ້ອຍ (${formFields.length} ຊ່ອງ · ${stepCount} ຂັ້ນຕອນ) — ໜ້າເວັບສາທາລະນະໃຊ້ຟອມໃໝ່ທັນທີ`, "ok");
     renderFormFields();
   } catch (err){
     console.error(err);
     setStatus($("form-fields-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
   }
 });
+
+
+/* ==========================================================================
+   ບັນຊີຜູ້ໃຊ້ງານລະບົບ (staff) — admin / ຜູ້ສຳພາດ
+   ເກັບໃນ Firestore: staff/{uid} = { role, name }
+   ບັນຊີທີ່ບໍ່ມີ doc ຢູ່ໃນນີ້ ຈະຖືເປັນ admin ໂດຍອັດຕະໂນມັດ (ຕາມ firestore.rules)
+   ========================================================================== */
+const ROLE_LABEL = { admin: "ຜູ້ດູແລລະບົບ", interviewer: "ຜູ້ສຳພາດ (ອ່ານຢ່າງດຽວ)" };
+let staffList = [];
+
+async function loadStaff(){
+  const listEl = $("staff-list");
+  listEl.innerHTML = `<p class="admin-loading">ກຳລັງໂຫຼດບັນຊີ...</p>`;
+  try {
+    const snap = await getDocs(collection(db, STAFF_COLLECTION));
+    staffList = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    renderStaff();
+  } catch (err){
+    console.error(err);
+    listEl.innerHTML = `<p class="admin-error">ໂຫຼດບັນຊີບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
+  }
+}
+/* ==========================================================================
+   หัวข้อให้คะแนนตอนสัมภาษณ์ (Interview Criteria)
+   ========================================================================== */
+let interviewCriteria = [];
+const DEFAULT_CRITERIA = [
+  { id: "c1", label_la: "ບຸກຄະລິກກະພາບ ແລະ ການສື່ສານ", label_en: "Personality & communication" },
+  { id: "c2", label_la: "ຄວາມຮູ້ ແລະ ທັກສະໃນສາຍງານ",   label_en: "Knowledge & job skills" },
+  { id: "c3", label_la: "ປະສົບການເຮັດວຽກ",              label_en: "Work experience" },
+  { id: "c4", label_la: "ທັດສະນະຄະຕິ ແລະ ຄວາມກະຕືລືລົ້ນ", label_en: "Attitude & motivation" },
+  { id: "c5", label_la: "ຄວາມເໝາະສົມກັບອົງກອນ",         label_en: "Fit with the organisation" }
+];
+const criteriaContainer = $("criteria-container");
+
+function criterionBlockHtml(c, idx, total){
+  return `
+    <div class="position-edit-block form-field-block criterion-block" data-idx="${idx}">
+      <div class="position-edit-head">
+        <span class="position-edit-label">ຫົວຂໍ້ທີ ${idx + 1}</span>
+        <div class="field-block-actions">
+          <button type="button" class="btn btn--ghost btn--sm" data-crit-move="up" ${idx === 0 ? "disabled" : ""}>↑</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-crit-move="down" ${idx === total - 1 ? "disabled" : ""}>↓</button>
+          <button type="button" class="btn btn--danger btn--sm" data-crit-remove>ລຶບຫົວຂໍ້ນີ້</button>
+        </div>
+      </div>
+      <div class="field-grid">
+        <label class="field">
+          <span>ຊື່ຫົວຂໍ້ (ພາສາລາວ) <em>*</em></span>
+          <input type="text" class="crit-label-la" value="${escapeHtml(c.label_la || c.label || "")}">
+        </label>
+        <label class="field">
+          <span>ຊື່ຫົວຂໍ້ (English)</span>
+          <input type="text" class="crit-label-en" value="${escapeHtml(c.label_en || "")}">
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function renderCriteria(){
+  criteriaContainer.innerHTML = interviewCriteria.length
+    ? interviewCriteria.map((c, i) => criterionBlockHtml(c, i, interviewCriteria.length)).join("")
+    : `<div class="admin-empty"><p>ຍັງບໍ່ມີຫົວຂໍ້ໃຫ້ຄະແນນ</p></div>`;
+
+  criteriaContainer.querySelectorAll(".criterion-block").forEach(block => {
+    const idx = Number(block.dataset.idx);
+    block.querySelector("[data-crit-remove]")?.addEventListener("click", () => {
+      const nm = interviewCriteria[idx].label_la || interviewCriteria[idx].label || "";
+      if(!confirm(`ລຶບຫົວຂໍ້ "${nm}" ? (ມີຜົນເມື່ອກົດ "ບັນທຶກຫົວຂໍ້ຄະແນນ")`)) return;
+      collectCriteriaFromDom();
+      interviewCriteria.splice(idx, 1);
+      renderCriteria();
+    });
+    block.querySelector('[data-crit-move="up"]').addEventListener("click", () => {
+      collectCriteriaFromDom();
+      [interviewCriteria[idx - 1], interviewCriteria[idx]] = [interviewCriteria[idx], interviewCriteria[idx - 1]];
+      renderCriteria();
+    });
+    block.querySelector('[data-crit-move="down"]').addEventListener("click", () => {
+      collectCriteriaFromDom();
+      [interviewCriteria[idx + 1], interviewCriteria[idx]] = [interviewCriteria[idx], interviewCriteria[idx + 1]];
+      renderCriteria();
+    });
+  });
+}
+
+function collectCriteriaFromDom(){
+  const blocks = [...criteriaContainer.querySelectorAll(".criterion-block")];
+  if(!blocks.length) {
+    interviewCriteria = [];
+    return;
+  }
+  const snapshot = interviewCriteria;
+  interviewCriteria = blocks.map((block, i) => {
+    const existing = snapshot[Number(block.dataset.idx)] || {};
+    const labelLa = block.querySelector(".crit-label-la").value.trim();
+    return {
+      id: existing.id || "c" + Date.now().toString(36) + i,
+      label_la: labelLa,
+      label_en: block.querySelector(".crit-label-en").value.trim(),
+      label: labelLa
+    };
+  });
+}
+
+$("add-criterion-btn").addEventListener("click", () => {
+  collectCriteriaFromDom();
+  interviewCriteria.push({
+    id: "c" + Date.now().toString(36),
+    label_la: "", label_en: "", label: ""
+  });
+  renderCriteria();
+  const blocks = criteriaContainer.querySelectorAll(".crit-label-la");
+  blocks[blocks.length - 1]?.focus();
+});
+
+$("save-criteria-btn").addEventListener("click", async () => {
+  collectCriteriaFromDom();
+  const empty = interviewCriteria.find(c => !c.label_la);
+  if(empty){
+    setStatus($("criteria-status"), "ທຸກຫົວຂໍ້ຕ້ອງມີ \"ຊື່ຫົວຂໍ້ (ພາສາລາວ)\" — ກອກໃຫ້ຄົບກ່ອນບັນທຶກ", "err");
+    return;
+  }
+  try {
+    await setDoc(doc(db, SETTINGS_COLLECTION, "interviewCriteria"), { criteria: interviewCriteria }, { merge: true });
+    setStatus($("criteria-status"), `ບັນທຶກຮຽບຮ້ອຍ (${interviewCriteria.length} ຫົວຂໍ້)`, "ok");
+    renderCriteria();
+  } catch (err){
+    console.error(err);
+    setStatus($("criteria-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
+  }
+});
+
+function renderStaff(){
+  const listEl = $("staff-list");
+  if(!staffList.length){
+    listEl.innerHTML = `<div class="admin-empty"><p>ຍັງບໍ່ໄດ້ກຳນົດບົດບາດໃຫ້ບັນຊີໃດເລີຍ</p>
+      <p class="admin-empty-sub">ຕອນນີ້ທຸກບັນຊີທີ່ລ໋ອກອິນໄດ້ ຈະເປັນຜູ້ດູແລລະບົບທັງໝົດ</p></div>`;
+    return;
+  }
+  listEl.innerHTML = staffList
+    .sort((a, b) => (a.role || "").localeCompare(b.role || ""))
+    .map(st => `
+      <div class="dept-admin-card" data-uid="${escapeHtml(st.uid)}">
+        <div class="dept-admin-main">
+          <span class="dept-code">${st.role === "admin" ? "ADMIN" : "VIEW"}</span>
+          <div class="dept-admin-info">
+            <h3>${escapeHtml(st.name || "(ບໍ່ໄດ້ໃສ່ຊື່)")}</h3>
+            <div class="dept-admin-meta">
+              <span>${escapeHtml(ROLE_LABEL[st.role] || st.role || "-")}</span>
+              <span style="font-family:monospace">${escapeHtml(st.uid)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="dept-admin-actions">
+          <button class="btn btn--ghost btn--sm" data-staff-edit>ແກ້ໄຂ</button>
+          <button class="btn btn--danger btn--sm" data-staff-remove>ລຶບ</button>
+        </div>
+      </div>`).join("");
+
+  listEl.querySelectorAll(".dept-admin-card").forEach(card => {
+    const uid = card.dataset.uid;
+    const st = staffList.find(x => x.uid === uid);
+    card.querySelector("[data-staff-edit]").addEventListener("click", () => {
+      $("staff-uid").value = st.uid;
+      $("staff-name").value = st.name || "";
+      $("staff-role").value = st.role || "interviewer";
+      $("staff-uid").focus();
+      setStatus($("staff-status"), "ແກ້ໄຂແລ້ວກົດ \"ບັນທຶກບັນຊີ\" ເພື່ອຢືນຢັນ");
+    });
+    card.querySelector("[data-staff-remove]").addEventListener("click", async () => {
+      if(!confirm(`ລຶບການກຳນົດບົດບາດຂອງ "${st.name || st.uid}" ?\nຫຼັງລຶບແລ້ວ ບັນຊີນີ້ຈະກາຍເປັນຜູ້ດູແລລະບົບໂດຍອັດຕະໂນມັດ`)) return;
+      try {
+        await deleteDoc(doc(db, STAFF_COLLECTION, uid));
+        setStatus($("staff-status"), "ລຶບຮຽບຮ້ອຍ", "ok");
+        await loadStaff();
+      } catch (err){
+        console.error(err);
+        setStatus($("staff-status"), "ລຶບບໍ່ສຳເລັດ: " + err.message, "err");
+      }
+    });
+  });
+}
+
+$("staff-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const uid = $("staff-uid").value.trim();
+  const name = $("staff-name").value.trim();
+  const role = $("staff-role").value;
+  if(!uid){
+    setStatus($("staff-status"), "ກະລຸນາໃສ່ User UID (ກັອບປີ້ຈາກ Firebase Console → Authentication)", "err");
+    return;
+  }
+  if(uid === auth.currentUser?.uid && role !== "admin"){
+    if(!confirm("ນີ້ແມ່ນບັນຊີຂອງທ່ານເອງ — ຖ້າຕັ້ງເປັນຜູ້ສຳພາດ ທ່ານຈະເຂົ້າແຜງຄວບຄຸມນີ້ບໍ່ໄດ້ອີກ ຢືນຢັນບໍ່?")) return;
+  }
+  try {
+    await setDoc(doc(db, STAFF_COLLECTION, uid), { role, name });
+    setStatus($("staff-status"), `ບັນທຶກຮຽບຮ້ອຍ — ${ROLE_LABEL[role]}`, "ok");
+    $("staff-uid").value = "";
+    $("staff-name").value = "";
+    await loadStaff();
+  } catch (err){
+    console.error(err);
+    setStatus($("staff-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
+  }
+});
+
+$("denied-logout").addEventListener("click", () => signOut(auth));
