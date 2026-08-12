@@ -241,21 +241,21 @@ const I18N = {
     heroSub: "ສຳຫຼວດແຕ່ລະຕຳແໜ່ງໃນສະຖາບັນການເງິນຈຸລະພາກຂອງພວກເຮົາ ເບິ່ງພາລະໜ້າທີ່ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ ແລ້ວຍື່ນໃບສະໝັກໄດ້ທັນທີຈາກໜ້ານີ້",
     statDepts: "ຕຳແໜ່ງທັງໝົດ",
     statOpen: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
-    branchTitle: "ເລືອກສາຂາ",
-    branchSub: n => `ທັງໝົດ ${n} ສາຂາ — ກົດເລືອກສາຂາເພື່ອເບິ່ງຕຳແໜ່ງຂອງສາຂານັ້ນ`,
-    branchLabel: "ສາຂາ",
+    branchTitle: "ເລືອກແຂວງທີ່ທ່ານສົນໃຈ",
+    branchSub: n => `ທັງໝົດ ${n} ແຂວງ — ກົດເລືອກແຂວງເພື່ອເບິ່ງຕຳແໜ່ງຂອງແຂວງນັ້ນ`,
+    branchLabel: "ແຂວງ",
     dirTitle: "ເລືອກສາຍງານທີ່ທ່ານສົນໃຈ",
     dirSub: "ຄລິກທີ່ກາດເພື່ອເບິ່ງລາຍລະອຽດ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ",
     nDuties: n => `${n} ພາລະບົດບາດຫຼັກ`,
     openN: n => `ເປີດຮັບ ${n} ຕຳແໜ່ງ`,
     openZero: "ຝາກປະຫວັດໄວ້",
     seatsN: n => `ຮັບ ${n} ຕຳແໜ່ງ`,
-    listedN: n => `ມີ ${n} ຕຳແໜ່ງໃນສາຂານີ້`,
+    listedN: n => `ມີ ${n} ຕຳແໜ່ງໃນແຂວງນີ້`,
     back: "← ກັບໄປໜ້າຕຳແໜ່ງທັງໝົດ",
     openPositions: "ຕຳແໜ່ງເປີດຮັບ",
     respTitle: "ໜ້າທີ່ຫຼັກຂອງຕຳແໜ່ງນີ້",
     respTitles: "ໜ້າທີ່ຫຼັກຂອງຕຳແໜ່ງນີ້",
-    posTitle: "ຕຳແໜ່ງໃນສາຂານີ້",
+    posTitle: "ຕຳແໜ່ງໃນແຂວງນີ້",
     posEmpty: "ແຂວງນີ້ນີ້ຍັງບໍ່ມີຕຳແໜ່ງຂອງຕຳແໜ່ງນີ້ ຫາກສົນໃຈຮ່ວມງານໃນອະນາຄົດ ສາມາດຝາກປະຫວັດໄວ້ລ່ວງໜ້າໄດ້",
     applyGeneral: "ຝາກປະຫວັດໄວ້ກັບຕຳແໜ່ງນີ້",
     generalTitle: "ຝາກປະຫວັດທົ່ວໄປ",
@@ -546,7 +546,7 @@ function renderDirectory(){
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
           ${activeDepts.length > 0 
             ? activeDepts.map(d => deptCard(d)).join("")
-            : `<div class="col-span-full rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-semibold text-slate-400">ປັດຈຸບັນຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບໃນສາຂານີ້ <br>(ไม่มีตำแหน่งเปิดรับในสาขานี้)</div>`
+            : `<div class="col-span-full rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-semibold text-slate-400">ປັດຈຸບັນຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບໃນແຂວງນີ້ <br>(ไม่มีตำแหน่งเปิดรับในสาขานี้)</div>`
           }
         </div>
       </div>

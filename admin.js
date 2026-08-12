@@ -1119,9 +1119,11 @@ let stepTitles = [];   // ຫົວຂໍ້ຂອງແຕ່ລະໜ້າ (1
 async function loadSettings(){
   if(FIREBASE_NOT_CONFIGURED) return;
   try {
-    const [notifSnap, formSnap] = await Promise.all([
+    // 1. ดึงข้อมูลทีเดียว 3 อย่างรวมถึง interviewCriteria ด้วย
+    const [notifSnap, formSnap, critSnap] = await Promise.all([
       getDoc(doc(db, SETTINGS_COLLECTION, "notifications")),
-      getDoc(doc(db, SETTINGS_COLLECTION, "applicationForm"))
+      getDoc(doc(db, SETTINGS_COLLECTION, "applicationForm")),
+      getDoc(doc(db, SETTINGS_COLLECTION, "interviewCriteria")) // <-- โหลดหัวข้อ
     ]);
 
     const emails = (notifSnap.exists() && Array.isArray(notifSnap.data().emails) && notifSnap.data().emails.length)
@@ -1138,6 +1140,12 @@ async function loadSettings(){
     $("step-titles").value = stepTitles.join("\n");
 
     renderFormFields();
+
+    // 2. นำข้อมูลหัวข้อคะแนนมาเตรียมแสดงผล
+    const list = critSnap.exists() ? critSnap.data().criteria : null;
+    interviewCriteria = (Array.isArray(list) && list.length) ? list : structuredClone(DEFAULT_CRITERIA);
+    renderCriteria();
+
   } catch (err){
     console.error(err);
     setStatus($("notify-status"), "ໂຫຼດການຕັ້ງຄ່າບໍ່ສຳເລັດ: " + err.message, "err");
@@ -1371,6 +1379,117 @@ async function loadStaff(){
     listEl.innerHTML = `<p class="admin-error">ໂຫຼດບັນຊີບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
   }
 }
+/* ==========================================================================
+   หัวข้อให้คะแนนตอนสัมภาษณ์ (Interview Criteria)
+   ========================================================================== */
+let interviewCriteria = [];
+const DEFAULT_CRITERIA = [
+  { id: "c1", label_la: "ບຸກຄະລິກກະພາບ ແລະ ການສື່ສານ", label_en: "Personality & communication" },
+  { id: "c2", label_la: "ຄວາມຮູ້ ແລະ ທັກສະໃນສາຍງານ",   label_en: "Knowledge & job skills" },
+  { id: "c3", label_la: "ປະສົບການເຮັດວຽກ",              label_en: "Work experience" },
+  { id: "c4", label_la: "ທັດສະນະຄະຕິ ແລະ ຄວາມກະຕືລືລົ້ນ", label_en: "Attitude & motivation" },
+  { id: "c5", label_la: "ຄວາມເໝາະສົມກັບອົງກອນ",         label_en: "Fit with the organisation" }
+];
+const criteriaContainer = $("criteria-container");
+
+function criterionBlockHtml(c, idx, total){
+  return `
+    <div class="position-edit-block form-field-block criterion-block" data-idx="${idx}">
+      <div class="position-edit-head">
+        <span class="position-edit-label">ຫົວຂໍ້ທີ ${idx + 1}</span>
+        <div class="field-block-actions">
+          <button type="button" class="btn btn--ghost btn--sm" data-crit-move="up" ${idx === 0 ? "disabled" : ""}>↑</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-crit-move="down" ${idx === total - 1 ? "disabled" : ""}>↓</button>
+          <button type="button" class="btn btn--danger btn--sm" data-crit-remove>ລຶບຫົວຂໍ້ນີ້</button>
+        </div>
+      </div>
+      <div class="field-grid">
+        <label class="field">
+          <span>ຊື່ຫົວຂໍ້ (ພາສາລາວ) <em>*</em></span>
+          <input type="text" class="crit-label-la" value="${escapeHtml(c.label_la || c.label || "")}">
+        </label>
+        <label class="field">
+          <span>ຊື່ຫົວຂໍ້ (English)</span>
+          <input type="text" class="crit-label-en" value="${escapeHtml(c.label_en || "")}">
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function renderCriteria(){
+  criteriaContainer.innerHTML = interviewCriteria.length
+    ? interviewCriteria.map((c, i) => criterionBlockHtml(c, i, interviewCriteria.length)).join("")
+    : `<div class="admin-empty"><p>ຍັງບໍ່ມີຫົວຂໍ້ໃຫ້ຄະແນນ</p></div>`;
+
+  criteriaContainer.querySelectorAll(".criterion-block").forEach(block => {
+    const idx = Number(block.dataset.idx);
+    block.querySelector("[data-crit-remove]")?.addEventListener("click", () => {
+      const nm = interviewCriteria[idx].label_la || interviewCriteria[idx].label || "";
+      if(!confirm(`ລຶບຫົວຂໍ້ "${nm}" ? (ມີຜົນເມື່ອກົດ "ບັນທຶກຫົວຂໍ້ຄະແນນ")`)) return;
+      collectCriteriaFromDom();
+      interviewCriteria.splice(idx, 1);
+      renderCriteria();
+    });
+    block.querySelector('[data-crit-move="up"]').addEventListener("click", () => {
+      collectCriteriaFromDom();
+      [interviewCriteria[idx - 1], interviewCriteria[idx]] = [interviewCriteria[idx], interviewCriteria[idx - 1]];
+      renderCriteria();
+    });
+    block.querySelector('[data-crit-move="down"]').addEventListener("click", () => {
+      collectCriteriaFromDom();
+      [interviewCriteria[idx + 1], interviewCriteria[idx]] = [interviewCriteria[idx], interviewCriteria[idx + 1]];
+      renderCriteria();
+    });
+  });
+}
+
+function collectCriteriaFromDom(){
+  const blocks = [...criteriaContainer.querySelectorAll(".criterion-block")];
+  if(!blocks.length) {
+    interviewCriteria = [];
+    return;
+  }
+  const snapshot = interviewCriteria;
+  interviewCriteria = blocks.map((block, i) => {
+    const existing = snapshot[Number(block.dataset.idx)] || {};
+    const labelLa = block.querySelector(".crit-label-la").value.trim();
+    return {
+      id: existing.id || "c" + Date.now().toString(36) + i,
+      label_la: labelLa,
+      label_en: block.querySelector(".crit-label-en").value.trim(),
+      label: labelLa
+    };
+  });
+}
+
+$("add-criterion-btn").addEventListener("click", () => {
+  collectCriteriaFromDom();
+  interviewCriteria.push({
+    id: "c" + Date.now().toString(36),
+    label_la: "", label_en: "", label: ""
+  });
+  renderCriteria();
+  const blocks = criteriaContainer.querySelectorAll(".crit-label-la");
+  blocks[blocks.length - 1]?.focus();
+});
+
+$("save-criteria-btn").addEventListener("click", async () => {
+  collectCriteriaFromDom();
+  const empty = interviewCriteria.find(c => !c.label_la);
+  if(empty){
+    setStatus($("criteria-status"), "ທຸກຫົວຂໍ້ຕ້ອງມີ \"ຊື່ຫົວຂໍ້ (ພາສາລາວ)\" — ກອກໃຫ້ຄົບກ່ອນບັນທຶກ", "err");
+    return;
+  }
+  try {
+    await setDoc(doc(db, SETTINGS_COLLECTION, "interviewCriteria"), { criteria: interviewCriteria }, { merge: true });
+    setStatus($("criteria-status"), `ບັນທຶກຮຽບຮ້ອຍ (${interviewCriteria.length} ຫົວຂໍ້)`, "ok");
+    renderCriteria();
+  } catch (err){
+    console.error(err);
+    setStatus($("criteria-status"), "ບັນທຶກບໍ່ສຳເລັດ: " + err.message, "err");
+  }
+});
 
 function renderStaff(){
   const listEl = $("staff-list");
