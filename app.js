@@ -1102,6 +1102,38 @@ function hideSubmitOverlay(){
 
 document.getElementById("submit-done-btn").addEventListener("click", hideSubmitOverlay);
 
+/* ສົ່ງຂໍ້ມູນໃບສະໝັກໄປໃຫ້ serverless function ເພື່ອສົ່ງອີເມວແຈ້ງ HR
+   ບໍ່ throw error ອອກມາ — ຄວາມລົ້ມເຫຼວຂອງອີເມວບໍ່ຄວນທຳລາຍປະສົບການຜູ້ສະໝັກ */
+function notifyHr(payload){
+  try {
+    fetch("/api/notify-application", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true          // ສົ່ງໃຫ້ຈົບ ເຖິງແມ່ນຜູ້ໃຊ້ຈະປິດໜ້າທັນທີ
+    })
+    .then(async r => {
+      const raw = await r.text();
+      let d = null;
+      try { d = JSON.parse(raw); } catch (e) { /* ບໍ່ແມ່ນ JSON */ }
+
+      if(r.ok && d && d.ok){
+        console.log(`%c✅ ແຈ້ງເຕືອນອີເມວສຳເລັດ (${d.sentTo} ຜູ້ຮັບ)`, "color:#10b981;font-weight:bold");
+      } else {
+        console.error(
+          "%c❌ ແຈ້ງເຕືອນອີເມວບໍ່ສຳເລັດ", "color:#ef4444;font-weight:bold",
+          "\nHTTP status:", r.status,
+          "\nຄຳຕອບຈາກເຊີບເວີ:", d || raw.slice(0, 300)
+        );
+      }
+    })
+    .catch(err => console.error("%c❌ ເອີ້ນ /api/notify-application ບໍ່ໄດ້",
+      "color:#ef4444;font-weight:bold", err));
+  } catch (err){
+    console.warn("ແຈ້ງເຕືອນອີເມວບໍ່ສຳເລັດ:", err);
+  }
+}
+
 let applyingToOpenPosition = true;
 
 /* ==========================================================================
@@ -1348,8 +1380,27 @@ form.addEventListener("submit", async (e) => {
       advanceProfile: !applyingToOpenPosition,
       status: "new",
       submittedAt: serverTimestamp(),
+      /* to / message ຍັງເກັບໄວ້ ເພື່ອໃຫ້ Firebase Extension ເກົ່າ (ຖ້າຍັງຕິດຕັ້ງຢູ່)
+         ເຮັດວຽກໄດ້ຄືເກົ່າ — ຖອນ extension ອອກເມື່ອໃດ 2 ບັນທັດນີ້ກໍ່ບໍ່ມີຜົນຫຍັງ */
       to: NOTIFY_EMAILS,
       message: { subject, text: emailText }
+    });
+
+    /* ແຈ້ງເຕືອນ HR ທາງອີເມວຜ່ານ /api/notify-application
+       ເປັນແບບ "ສົ່ງແລ້ວບໍ່ລໍ" — ຖ້າສົ່ງບໍ່ໄດ້ ຜູ້ສະໝັກຈະບໍ່ໄດ້ຮັບຜົນກະທົບ
+       ເພາະໃບສະໝັກຖືກບັນທຶກລົງ Firestore ຮຽບຮ້ອຍແລ້ວ */
+    notifyHr({
+      applicationId: appRef.id,
+      department: departmentVal,
+      position: positionVal,
+      branch: branchVal,
+      name: nameVal,
+      email: emailVal,
+      phone: phoneVal,
+      answers,
+      attachments: attachments.map(a => ({ label: a.label, name: a.name, url: a.url })),
+      advanceProfile: !applyingToOpenPosition,
+      adminUrl: location.origin + "/admin.html"
     });
 
     setApplyStatus("");

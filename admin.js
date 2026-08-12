@@ -1153,6 +1153,32 @@ async function loadSettings(){
 }
 
 /* ---------- อีเมลแจ้งเตือน ---------- */
+/* ປຸ່ມ "ສົ່ງອີເມວທົດສອບ" — ເອີ້ນ /api/notify-application ດ້ວຍ { test: true }
+   ຊ່ວຍກວດວ່າຕັ້ງຄ່າ RESEND_API_KEY / MAIL_FROM ໃນ Vercel ຖືກຕ້ອງແລ້ວຫຼືຍັງ */
+$("test-email-btn").addEventListener("click", async () => {
+  const btn = $("test-email-btn");
+  btn.disabled = true;
+  setStatus($("notify-status"), "ກຳລັງສົ່ງອີເມວທົດສອບ...");
+  try {
+    const res = await fetch("/api/notify-application", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test: true })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(data.ok){
+      setStatus($("notify-status"), `ສົ່ງແລ້ວ ${data.sentTo} ອີເມວ — ກະລຸນາກວດເບິ່ງກ່ອງຈົດໝາຍ (ລວມທັງ Spam)`, "ok");
+    } else {
+      setStatus($("notify-status"), "ສົ່ງບໍ່ສຳເລັດ: " + (data.error || res.status), "err");
+    }
+  } catch (err){
+    setStatus($("notify-status"),
+      "ເອີ້ນ /api/notify-application ບໍ່ໄດ້ — ໜ້ານີ້ຕ້ອງເປີດຜ່ານເວັບຈິງ (Vercel) ບໍ່ແມ່ນ Live Server", "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 $("notify-form").addEventListener("submit", async e => {
   e.preventDefault();
   const emails = $("notify-emails").value
