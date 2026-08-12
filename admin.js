@@ -12,7 +12,7 @@ import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getStorage, ref, deleteObject
+  getStorage, ref, deleteObject, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 import {
   firebaseConfig, HR_NOTIFY_EMAILS, APPLICATIONS_COLLECTION,
@@ -205,6 +205,7 @@ function renderDepartmentList(){
             <span>ລຳດັບ: ${d.order ?? "-"}</span>
             <span>${(d.responsibilities || []).length} ພາລະກິດ</span>
             <span>${(d.positions || []).length} ຕຳແໜ່ງໃນຄັງ (ໃຊ້ງານ ${(d.positions || []).filter(p => p.active !== false).length})</span>
+            <span>🖼️ ໃສ່ຮູບເອງແລ້ວ ${(d.positions || []).filter(p => p.image).length} ຕຳແໜ່ງ</span>
           </div>
         </div>
       </div>
@@ -296,6 +297,30 @@ function positionBlockHtml(p = {}){
         <span>ຄຳອະທິບາຍຕຳແໜ່ງ</span>
         <textarea class="pos-description" rows="2">${escapeHtml(p.description || "")}</textarea>
       </label>
+
+      <!-- ຮູບປະກອບຕຳແໜ່ງ — ຈະສະແດງເທິງບັດຕຳແໜ່ງໃນໜ້າເວັບສາທາລະນະ -->
+      <div class="field">
+        <span>ຮູບປະກອບຕຳແໜ່ງ</span>
+        <div class="pos-image-row">
+          <div class="pos-image-preview" data-pos-preview>
+            ${p.image
+              ? `<img src="${escapeHtml(p.image)}" alt="">`
+              : `<span class="pos-image-empty">ຍັງບໍ່ມີຮູບ<br>(ລະບົບຈະເລືອກໃຫ້ອັດຕະໂນມັດ)</span>`}
+          </div>
+          <div class="pos-image-controls">
+            <input type="url" class="pos-image" value="${escapeHtml(p.image || "")}"
+                   placeholder="ວາງລິ້ງຮູບ https://... ຫຼື ກົດອັບໂຫຼດຮູບ">
+            <div class="field-block-actions">
+              <label class="btn btn--ghost btn--sm pos-upload-label">
+                ອັບໂຫຼດຮູບ
+                <input type="file" class="pos-image-file" accept="image/*" hidden>
+              </label>
+              <button type="button" class="btn btn--ghost btn--sm" data-pos-image-clear>ລຶບຮູບ</button>
+              <span class="form-status pos-image-status"></span>
+            </div>
+          </div>
+        </div>
+      </div>
       <label class="field">
         <span>ພາລະໜ້າທີ່ໂດຍລະອຽດ (1 ແຖວ = 1 ຂໍ້)</span>
         <textarea class="pos-duties" rows="5">${escapeHtml(duties)}</textarea>
@@ -309,6 +334,67 @@ function addPositionBlock(p){
   const block = positionsContainer.lastElementChild;
   block.querySelector("[data-remove-position]").addEventListener("click", () => {
     if(confirm("ລຶບຕຳແໜ່ງນີ້ອອກຈາກຟອມ? (ຈະມີຜົນເມື່ອກົດບັນທຶກພະແນກ)")) block.remove();
+  });
+  bindPositionImage(block);
+}
+
+/* ==========================================================================
+   ຮູບປະກອບຕຳແໜ່ງ
+   ເກັບເປັນລິ້ງ (URL) ໄວ້ໃນ position.image
+   ໃສ່ໄດ້ 2 ວິທີ: ວາງລິ້ງເອງ ຫຼື ອັບໂຫຼດຮູບຂຶ້ນ Firebase Storage
+   ຖ້າປະຫວ່າງໄວ້ ໜ້າເວັບຈະເລືອກຮູບໃຫ້ອັດຕະໂນມັດຕາມຊື່ຕຳແໜ່ງ
+   ========================================================================== */
+const MAX_POSITION_IMAGE = 3 * 1024 * 1024;   // 3 MB
+
+function setPositionPreview(block, url){
+  const box = block.querySelector("[data-pos-preview]");
+  box.innerHTML = url
+    ? `<img src="${escapeHtml(url)}" alt="">`
+    : `<span class="pos-image-empty">ຍັງບໍ່ມີຮູບ<br>(ລະບົບຈະເລືອກໃຫ້ອັດຕະໂນມັດ)</span>`;
+}
+
+function bindPositionImage(block){
+  const urlInput = block.querySelector(".pos-image");
+  const fileInput = block.querySelector(".pos-image-file");
+  const statusEl = block.querySelector(".pos-image-status");
+
+  urlInput.addEventListener("input", () => setPositionPreview(block, urlInput.value.trim()));
+
+  block.querySelector("[data-pos-image-clear]").addEventListener("click", () => {
+    urlInput.value = "";
+    setPositionPreview(block, "");
+    setStatus(statusEl, "ລຶບຮູບແລ້ວ — ກົດ \"ບັນທຶກພະແນກ\" ເພື່ອຢືນຢັນ", "ok");
+  });
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if(!file) return;
+    if(!file.type.startsWith("image/")){
+      setStatus(statusEl, "ກະລຸນາເລືອກໄຟລ໌ຮູບເທົ່ານັ້ນ", "err");
+      fileInput.value = "";
+      return;
+    }
+    if(file.size > MAX_POSITION_IMAGE){
+      setStatus(statusEl, "ຮູບໃຫຍ່ເກີນ 3 MB ກະລຸນາຫຍໍ້ຮູບກ່ອນ", "err");
+      fileInput.value = "";
+      return;
+    }
+    setStatus(statusEl, "ກຳລັງອັບໂຫຼດຮູບ...");
+    try {
+      const posId = block.dataset.posId || genId("pos");
+      const safeName = file.name.replace(/[^\w.\-]/g, "_");
+      const path = `position-images/${posId}-${Date.now()}-${safeName}`;
+      const snap = await uploadBytes(ref(storage, path), file);
+      const url = await getDownloadURL(snap.ref);
+      urlInput.value = url;
+      setPositionPreview(block, url);
+      setStatus(statusEl, "ອັບໂຫຼດສຳເລັດ — ຢ່າລືມກົດ \"ບັນທຶກພະແນກ\"", "ok");
+    } catch (err){
+      console.error(err);
+      setStatus(statusEl, "ອັບໂຫຼດບໍ່ສຳເລັດ: " + err.message, "err");
+    } finally {
+      fileInput.value = "";
+    }
   });
 }
 
@@ -361,6 +447,7 @@ $("dept-form").addEventListener("submit", async e => {
     active: block.querySelector(".pos-active").checked,
     type: block.querySelector(".pos-type").value.trim() || "ເຕັມເວລາ",
     description: block.querySelector(".pos-description").value.trim(),
+    image: block.querySelector(".pos-image").value.trim(),
     duties: linesToArray(block.querySelector(".pos-duties").value)
   })).filter(p => p.title);
 

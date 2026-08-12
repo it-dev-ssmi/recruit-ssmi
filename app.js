@@ -236,7 +236,7 @@ const I18N = {
     docTitle: "ຮ່ວມງານກັບ SSMI — ສະໝັກງານຕາມສາຍງານ",
     brand: "SSMI — ສິນຊັບເມືອງເໜືອ",
     navAll: "ຕຳແໜ່ງທັງໝົດ",
-    heroEyebrow: "ຮ່ວມງານກັບ SSMI ສິນຊັບເມືອງເໜືອ",
+    heroEyebrow: "ຮ່ວມງານກັບ ສິນຊັບເມືອງເໜືອ",
     heroTitle: 'ເລືອກຕຳແໜ່ງທ່ານໂດດເດັ່ນ <span class="grad">ຄົ້ນຫາບົດບາດ</span> ທີ່ເປັນຂອງທ່ານ',
     heroSub: "ສຳຫຼວດແຕ່ລະຕຳແໜ່ງໃນສະຖາບັນການເງິນຈຸລະພາກຂອງພວກເຮົາ ເບິ່ງພາລະໜ້າທີ່ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ ແລ້ວຍື່ນໃບສະໝັກໄດ້ທັນທີຈາກໜ້ານີ້",
     statDepts: "ຕຳແໜ່ງທັງໝົດ",
@@ -271,7 +271,7 @@ const I18N = {
     submit: "ສົ່ງໃບສະໝັກ",
     selectPlaceholder: "— ເລືອກ —",
     footerBrand: "SSMI ສິນຊັບເມືອງເໜືອ",
-    footerNote: "ຂໍ້ມູນຜູ້ສະໝັກຈະຖືກສົ່ງກົງເຖິງຝ່າຍບຸກຄະລາກອນເພື່ອພິຈາລະນາ",
+    footerNote: "ຂໍ້ມູນຜູ້ສະໝັກຈະຖືກສົ່ງຕົງເຖິງຝ່າຍບຸກຄະລາກອນເພື່ອພິຈາລະນາ",
     loading: "ກຳລັງໂຫຼດຂໍ້ມູນຕຳແໜ່ງ...",
     errNotConfigured: "ຍັງບໍ່ໄດ້ຕັ້ງຄ່າ Firebase — ເບິ່ງວິທີຕັ້ງຄ່າໃນ README.md",
     errCore: "ກະລຸນາກອກຊື່, ອີເມວ ແລະ ເບີໂທລະສັບໃຫ້ຄົບ",
@@ -568,9 +568,20 @@ function deptCard(d){
 
   // เพิ่ม js-open-dept ให้กับแผนกที่มีคนเปิดรับ
   return `
-    <a class="group relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-md transition-all duration-300 ease-in-out hover:-translate-y-2 hover:scale-[1.02] hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-500/20 sm:p-7 ${totalSeats > 0 ? "js-open-dept" : ""}" href="#/dept/${d.id}">
+    <a class="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-md transition-all duration-300 ease-in-out hover:-translate-y-2 hover:scale-[1.02] hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-500/20 ${totalSeats > 0 ? "js-open-dept" : ""}" href="#/dept/${d.id}">
+
+      <!-- ຮູບປະກອບພະແນກ + ລະຫັດພະແນກວາງທັບເທິງຮູບ -->
+      <div class="relative h-36 w-full shrink-0 overflow-hidden bg-gradient-to-br from-indigo-500 via-purple-500 to-fuchsia-500">
+        <img src="${escapeHtml(departmentImage(d))}" alt="${escapeHtml(tr(d, "name"))}" loading="lazy" decoding="async"
+             class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+             onerror="this.style.display='none'">
+        <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/55 via-slate-900/10 to-transparent"></div>
+        <span class="absolute left-4 top-4 inline-flex w-fit items-center rounded-full bg-white/95 px-3 py-1 font-mono text-[0.68rem] font-bold tracking-widest text-indigo-600 shadow-sm backdrop-blur">${escapeHtml(d.code || "")}</span>
+        ${totalSeats > 0 ? `<span class="absolute right-4 top-4 rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm">${t("seatsN")(totalSeats)}</span>` : ""}
+      </div>
+
+      <div class="flex flex-1 flex-col gap-3 p-6 sm:p-7">
       <span class="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 transition-transform duration-300 group-hover:scale-x-100"></span>
-      <span class="inline-flex w-fit items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 font-mono text-[0.68rem] font-bold tracking-widest text-indigo-600">${escapeHtml(d.code || "")}</span>
       <h3 class="font-display text-lg font-bold text-slate-900 transition-colors duration-300 group-hover:text-indigo-600">${escapeHtml(tr(d, "name"))}</h3>
       <p class="line-clamp-3 text-sm text-slate-500">${escapeHtml(tr(d, "mission"))}</p>
       
@@ -586,6 +597,7 @@ function deptCard(d){
             ⏳ ປິດຮັບ: ${escapeHtml(earliestDeadline)}
           </div>
         ` : ""}
+      </div>
       </div>
     </a>
   `;
@@ -711,6 +723,106 @@ function renderDetail(deptId){
   });
 }
 
+/* ==========================================================================
+   ຮູບປະກອບຂອງແຕ່ລະຕຳແໜ່ງ
+   ລຳດັບການເລືອກຮູບ:
+     1. ຮູບທີ່ຕັ້ງເອງໃນ admin (p.image / p.imageUrl / p.photo) — ໃສ່ລິ້ງຮູບໄດ້ເລີຍ
+     2. ຈັບຄູ່ອັດຕະໂນມັດຈາກຄຳໃນຊື່ຕຳແໜ່ງ / ປະເພດ / ຊື່ພະແນກ
+     3. ຖ້າບໍ່ກົງກັບຄຳໃດເລີຍ ໃຊ້ຮູບຫ້ອງການທົ່ວໄປ (ສຸ່ມແບບຄົງທີ່ ຕຳແໜ່ງດຽວກັນໄດ້ຮູບເດີມສະເໝີ)
+   ຮູບທັງໝົດມາຈາກ Unsplash (ໃຊ້ຟຣີ ລວມທັງທາງການຄ້າ ບໍ່ຕ້ອງໃສ່ເຄຣດິດ)
+   ========================================================================== */
+const UNSPLASH = id => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=900&q=70`;
+
+/* ຄຳຄົ້ນ → ຮູບ (ຮອງຮັບທັງລາວ ໄທ ແລະ ອັງກິດ) */
+const POSITION_IMAGE_RULES = [
+  { keys: ["ບໍລິການລູກຄ້າ", "ໜ້າສິນ", "ໜ້າຮ້ານ", "ເຄົາເຕີ", "ບໍລິການ", "ລູກຄ້າ", "บริการ", "ลูกค้า",
+           "teller", "customer", "service", "counter", "front"],            id: "1656189368832-43a6dd24f18f" },
+  { keys: ["ສິນເຊື່ອ", "ໜີ້ສິນ", "ເງິນກູ້", "ກູ້ຢືມ", "ຕິດຕາມໜີ້", "ສິນຄ້າ", "สินเชื่อ", "หนี้",
+           "credit", "loan", "collection", "debt"],                          id: "1601597111158-2fceff292cdc" },
+  { keys: ["ບັນຊີ", "ການເງິນ", "ເງິນສົດ", "ຄັງເງິນ", "ກວດສອບ", "ພາສີ", "บัญชี", "การเงิน",
+           "account", "finance", "cash", "audit", "treasur"],                id: "1560264418-c4445382edbc" },
+  { keys: ["ໄອທີ", "ຄອມພິວເຕີ", "ໂປຣແກຣມ", "ລະບົບ", "ເຕັກໂນໂລຊີ", "ໄອຊີທີ", "ไอที", "โปรแกรม",
+           "it", "ict", "developer", "program", "software", "system", "tech", "data"], id: "1553877522-43269d4ea984" },
+  { keys: ["ການຕະຫຼາດ", "ຂາຍ", "ສົ່ງເສີມ", "ໂຄສະນາ", "ຕະຫຼາດ", "การตลาด", "ขาย",
+           "market", "sale", "promot", "brand", "digital"],                  id: "1522071820081-009f0129c71c" },
+  { keys: ["ບຸກຄະລາກອນ", "ຊັບພະຍາກອນມະນຸດ", "ຝຶກອົບຮົມ", "ບຸກຄົນ", "บุคคล", "ทรัพยากรมนุษย์",
+           "hr", "human", "recruit", "training", "people"],                  id: "1511376979163-f804dff7ad7b" },
+  { keys: ["ຜູ້ຈັດການ", "ຫົວໜ້າ", "ຮອງ", "ຜູ້ອຳນວຍການ", "ບໍລິຫານ", "ຍຸດທະສາດ", "ผู้จัดการ", "หัวหน้า",
+           "manager", "head", "director", "chief", "lead", "supervisor", "strateg"], id: "1622675363311-3e1904dc1885" },
+  { keys: ["ທຸລະການ", "ເອກະສານ", "ຫ້ອງການ", "ຈັດຊື້", "ພັດສະດຸ", "ธุรการ", "เอกสาร",
+           "admin", "office", "document", "clerk", "procure"],               id: "1568992687947-868a62a9f521" },
+  { keys: ["ກົດໝາຍ", "ນິຕິກຳ", "ສັນຍາ", "ກົດລະບຽບ", "กฎหมาย", "นิติกรรม",
+           "legal", "law", "compliance", "contract", "risk"],                id: "1600880292203-757bb62b4baf" },
+  { keys: ["ສາຂາ", "ໜ່ວຍບໍລິການ", "ສຳນັກງານ", "ສາຂາຍ່ອຍ", "สาขา",
+           "branch", "office manager"],                                      id: "1684679674829-fc7b436ec8e8" }
+];
+
+/* ຮູບສຳຮອງ ສຳລັບຕຳແໜ່ງທີ່ບໍ່ກົງກັບຄຳໃດເລີຍ */
+const FALLBACK_IMAGE_IDS = [
+  "1541746972996-4e0b0f43e02a",
+  "1568992688065-536aad8a12f6",
+  "1603201667141-5a2d4c673378",
+  "1606836591695-4d58a73eba1e",
+  "1556761175-b413da4baf72",
+  "1629904853716-f0bc54eea481",
+  "1522202176988-66273c2fd55f",
+  "1551434678-e076c223a692"
+];
+
+/* ຕົວເລກຄົງທີ່ຈາກຂໍ້ຄວາມ — ຕຳແໜ່ງດຽວກັນຈະໄດ້ຮູບເດີມທຸກຄັ້ງ ບໍ່ປ່ຽນໄປມາ */
+function stableHash(str){
+  let h = 0;
+  for(let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/* ຮູບຂອງ "ພະແນກ" ສຳລັບບັດໃນໜ້າລວມ
+   ໃຊ້ຮູບຂອງຕຳແໜ່ງທຳອິດໃນພະແນກທີ່ໃສ່ຮູບເອງໄວ້ ຖ້າບໍ່ມີກໍ່ຈັບຄູ່ຈາກຊື່ພະແນກ */
+function departmentImage(d){
+  const custom = (d.image || d.imageUrl || "").trim();
+  if(custom) return custom;
+
+  const withImage = (d.positions || []).find(p => (p.image || p.imageUrl || p.photo || "").trim());
+  if(withImage) return (withImage.image || withImage.imageUrl || withImage.photo).trim();
+
+  /* ບໍ່ມີຮູບທີ່ຕັ້ງເອງເລີຍ — ໃຫ້ຈັບຄູ່ອັດຕະໂນມັດຈາກຊື່ພະແນກ */
+  return positionImage({ id: d.id || d.code, title: tr(d, "name"), type: "" }, d);
+}
+
+function positionImage(p, d){
+  /* 1. ຮູບທີ່ຕັ້ງເອງຈາກ admin */
+  const custom = (p.image || p.imageUrl || p.photo || "").trim();
+  if(custom) return custom;
+
+  /* 2. ຈັບຄູ່ຈາກຄຳສຳຄັນ */
+  const hay = [
+    p.title, p.title_en, p.type, p.type_en, p.description,
+    d?.name, d?.name_en, d?.code
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  for(const rule of POSITION_IMAGE_RULES){
+    if(rule.keys.some(k => hay.includes(k.toLowerCase()))) return UNSPLASH(rule.id);
+  }
+
+  /* 3. ຮູບສຳຮອງ */
+  const seed = stableHash(p.id || p.title || "x");
+  return UNSPLASH(FALLBACK_IMAGE_IDS[seed % FALLBACK_IMAGE_IDS.length]);
+}
+
+/* ກ່ອງຮູບ — ມີພື້ນສີໄລ່ເສີຍໄວ້ດ້ານຫຼັງ ຖ້າໂຫຼດຮູບບໍ່ໄດ້ກໍ່ຍັງສວຍຢູ່ */
+function coverHtml(p, d, extraClass = "", badgeHtml = ""){
+  const url = positionImage(p, d);
+  const alt = escapeHtml(tr(p, "title") || "");
+  return `
+    <div class="relative shrink-0 overflow-hidden bg-gradient-to-br from-indigo-500 via-purple-500 to-fuchsia-500 ${extraClass}">
+      <img src="${escapeHtml(url)}" alt="${alt}" loading="lazy" decoding="async"
+           class="h-full w-full object-cover transition-transform duration-700 group-hover/card:scale-105 group-hover:scale-105"
+           onerror="this.style.display='none'">
+      <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/45 via-slate-900/5 to-transparent"></div>
+      ${badgeHtml}
+    </div>`;
+}
+
 function positionCard(d, p, i){
   const duties = trList(p, "duties");
   const branch = currentBranch();
@@ -719,47 +831,55 @@ function positionCard(d, p, i){
   const deadline = getPositionDeadline(branch, p); // ดึงวันที่ปิดรับ
 
   return `
-    <div class="group/card rounded-2xl border ${opened ? "border-indigo-200 bg-white js-open-position" : "border-slate-100 bg-slate-50"} p-4 shadow-sm transition-all duration-500 sm:p-5 ${opened ? "hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/10" : ""}">
-      <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-        <div>
-          <h5 class="font-display text-base font-bold text-slate-900">${escapeHtml(tr(p, "title"))}</h5>
-          <div class="mt-2 flex flex-wrap items-center gap-2">
-            <span class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(tr(p, "type") || p.type || "")}</span>
-            
-            ${headcount > 0
-              ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">${t("seatsN")(headcount)}</span>`
-              : `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>`}
-            
-            <!-- แสดงวันที่ปิดรับสมัครตัวเล็กๆ -->
-            ${deadline ? `<span class="text-xs font-medium text-slate-400">📅 ປິດຮັບສະໝັກ: ${escapeHtml(deadline)}</span>` : ""}
+    <div class="group/card overflow-hidden rounded-2xl border ${opened ? "border-indigo-200 bg-white js-open-position" : "border-slate-100 bg-slate-50"} shadow-sm transition-all duration-500 ${opened ? "hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/10" : ""}">
+      <div class="flex flex-col sm:flex-row">
+
+        ${coverHtml(p, d, `h-40 w-full sm:h-auto sm:w-52 sm:shrink-0 ${opened ? "" : "grayscale"}`)}
+
+        <div class="min-w-0 flex-1 p-4 sm:p-5">
+          <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <div class="min-w-0">
+              <h5 class="font-display text-base font-bold text-slate-900">${escapeHtml(tr(p, "title"))}</h5>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(tr(p, "type") || p.type || "")}</span>
+
+                ${headcount > 0
+                  ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">${t("seatsN")(headcount)}</span>`
+                  : `<span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">${t("closedTag")}</span>`}
+
+                <!-- แสดงวันที่ปิดรับสมัครตัวเล็กๆ -->
+                ${deadline ? `<span class="text-xs font-medium text-slate-400">📅 ປິດຮັບສະໝັກ: ${escapeHtml(deadline)}</span>` : ""}
+              </div>
+            </div>
+            <button class="w-full ${opened
+              ? "inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40"
+              : "inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:text-indigo-600"
+            } sm:w-auto" data-apply="${i}">
+              ${opened ? t("applyBtn") : t("applyClosedBtn")}
+            </button>
           </div>
+
+          <p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(tr(p, "description"))}</p>
+
+          ${duties.length ? `
+            <details class="group mt-4 border-t border-slate-100 pt-3 marker:content-none">
+              <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-purple-600">
+                ${t("dutiesN")(duties.length)}
+                <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </span>
+              </summary>
+              <ul class="details-content mt-4 space-y-2">
+                ${duties.map(du => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(du)}</li>`).join("")}
+              </ul>
+            </details>
+          ` : ""}
         </div>
-        <button class="w-full ${opened
-          ? "inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40"
-          : "inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:text-indigo-600"
-        } sm:w-auto" data-apply="${i}">
-          ${opened ? t("applyBtn") : t("applyClosedBtn")}
-        </button>
       </div>
-      <p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(tr(p, "description"))}</p>
-      ${duties.length ? `
-        <details class="group mt-4 border-t border-slate-100 pt-3 marker:content-none">
-          <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-purple-600">
-            ${t("dutiesN")(duties.length)}
-            <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-            </span>
-          </summary>
-          <ul class="details-content mt-4 space-y-2">
-            ${duties.map(du => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(du)}</li>`).join("")}
-          </ul>
-        </details>
-      ` : ""}
     </div>
   `;
 }
 
-/* ---------------- Application modal ---------------- */
 const overlay = document.getElementById("apply-overlay");
 const form = document.getElementById("apply-form");
 const statusEl = document.getElementById("apply-status");
@@ -1262,7 +1382,7 @@ function renderOpenings(){
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           ${allOpenings.length > 0 
             ? allOpenings.map((item, index) => openingCard(item, index)).join("") 
-            : `<div class="col-span-full rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-semibold text-slate-400">ປັດຈຸບັນຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບ <br>(ยังไม่มีตำแหน่งเปิดรับในขณะนี้)</div>`
+            : `<div class="col-span-full rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-semibold text-slate-400">ປັດຈຸບັນຍັງບໍ່ມີຕຳແໜ່ງເປີດຮັບ <br>ສາມາດຝາກປະຫວັດຂອງທ່ານໄວ້ລ່ວງໜ້າ ທີ່ໜ້າຫຼັກ</div>`
           }
         </div>
       </div>
@@ -1286,45 +1406,52 @@ function openingCard(item, index) {
   const duties = trList(item.p, "duties");
   const description = tr(item.p, "description");
 
-  return `
-    <div class="group flex flex-col justify-between rounded-3xl border border-indigo-100 bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/20">
-      <div>
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <span class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 font-mono text-[0.7rem] font-bold text-indigo-600">
-            📍 ${escapeHtml(tr(item.branch, "name"))}
-          </span>
-          <span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600">
-            ${t("seatsN")(item.count)}
-          </span>
-        </div>
-        
-        <h3 class="font-display text-lg font-bold text-slate-900 group-hover:text-indigo-600">${escapeHtml(tr(item.p, "title"))}</h3>
-        <p class="mt-1 text-sm font-semibold text-indigo-500">${escapeHtml(tr(item.dept, "name"))}</p>
-        
-        <!-- แสดงวันที่ปิดรับสมัคร -->
-        ${item.deadline ? `<p class="mt-2 text-xs font-medium text-slate-400">📅 ປິດຮັບສະໝັກ: ${escapeHtml(item.deadline)}</p>` : ""}
+  /* ປ້າຍສາຂາ ແລະ ຈຳນວນອັດຕາ ວາງທັບຢູ່ເທິງຮູບ */
+  const badges = `
+    <div class="absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-2 p-3">
+      <span class="inline-flex items-center rounded-full bg-white/95 px-3 py-1 font-mono text-[0.7rem] font-bold text-indigo-600 shadow-sm backdrop-blur">
+        📍 ${escapeHtml(tr(item.branch, "name"))}
+      </span>
+      <span class="rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm">
+        ${t("seatsN")(item.count)}
+      </span>
+    </div>`;
 
-        ${description ? `<p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(description)}</p>` : ""}
-        
-        ${duties.length ? `
-          <details class="group mt-4 border-t border-slate-100 pt-3 marker:content-none">
-            <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-purple-600">
-              ${t("dutiesN")(duties.length)}
-              <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
-                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-              </span>
-            </summary>
-            <ul class="details-content mt-4 space-y-2">
-              ${duties.map(du => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(du)}</li>`).join("")}
-            </ul>
-          </details>
-        ` : ""}
-      </div>
-      
-      <div class="mt-6 pt-4 border-t border-slate-100">
-        <button type="button" class="w-full inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:scale-105" data-apply-global="${index}">
-          ${t("applyBtn")}
-        </button>
+  return `
+    <div class="group flex flex-col overflow-hidden rounded-3xl border border-indigo-100 bg-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/20">
+
+      ${coverHtml(item.p, item.dept, "h-44 w-full", badges)}
+
+      <div class="flex flex-1 flex-col justify-between p-6">
+        <div>
+          <h3 class="font-display text-lg font-bold text-slate-900 group-hover:text-indigo-600">${escapeHtml(tr(item.p, "title"))}</h3>
+          <p class="mt-1 text-sm font-semibold text-indigo-500">${escapeHtml(tr(item.dept, "name"))}</p>
+
+          <!-- แสดงวันที่ปิดรับสมัคร -->
+          ${item.deadline ? `<p class="mt-2 text-xs font-medium text-slate-400">📅 ປິດຮັບສະໝັກ: ${escapeHtml(item.deadline)}</p>` : ""}
+
+          ${description ? `<p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(description)}</p>` : ""}
+
+          ${duties.length ? `
+            <details class="group mt-4 border-t border-slate-100 pt-3 marker:content-none">
+              <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-indigo-600 transition-colors duration-200 hover:text-purple-600">
+                ${t("dutiesN")(duties.length)}
+                <span class="ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-300 group-open:rotate-180 group-hover:bg-indigo-50 group-hover:text-indigo-600">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </span>
+              </summary>
+              <ul class="details-content mt-4 space-y-2">
+                ${duties.map(du => `<li class="relative pl-5 text-sm text-slate-600 before:absolute before:left-0 before:top-2 before:h-0.5 before:w-3 before:rounded-full before:bg-gradient-to-r before:from-indigo-500 before:to-purple-500">${escapeHtml(du)}</li>`).join("")}
+              </ul>
+            </details>
+          ` : ""}
+        </div>
+
+        <div class="mt-6 border-t border-slate-100 pt-4">
+          <button type="button" class="w-full inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:scale-105" data-apply-global="${index}">
+            ${t("applyBtn")}
+          </button>
+        </div>
       </div>
     </div>
   `;

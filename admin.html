@@ -12,6 +12,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="hero-theme.css">
 <link rel="stylesheet" href="admin-theme.css">
+<style>
+  /* ຮູບປະກອບຕຳແໜ່ງ */
+  .pos-image-row{ display:flex; gap:14px; align-items:flex-start; margin-top:6px; }
+  .pos-image-preview{
+    flex:0 0 auto; width:140px; height:92px; border-radius:12px; overflow:hidden;
+    border:1px solid #e2e8f0; background:#f8fafc;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pos-image-preview img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .pos-image-empty{ font-size:11px; color:#94a3b8; text-align:center; line-height:1.5; padding:8px; }
+  .pos-image-controls{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:8px; }
+  .pos-image-controls input[type="url"]{ width:100%; }
+  .pos-upload-label{ cursor:pointer; display:inline-flex; align-items:center; }
+  @media (max-width:640px){
+    .pos-image-row{ flex-direction:column; }
+    .pos-image-preview{ width:100%; height:130px; }
+  }
+</style>
 </head>
 <body>
 
@@ -304,6 +322,7 @@
         <div class="positions-editor">
           <div class="positions-editor-head">
             <h4>ຕຳແໜ່ງທີ່ເປີດຮັບໃນພະແນກນີ້</h4>
+            <p class="settings-sub" style="margin:0 12px 0 0">ແຕ່ລະຕຳແໜ່ງໃສ່ຮູບປະກອບໄດ້ — ປະຫວ່າງໄວ້ ລະບົບຈະເລືອກຮູບໃຫ້ຕາມຊື່ຕຳແໜ່ງ</p>
             <button type="button" class="btn btn--ghost btn--sm" id="add-position-btn">+ ເພີ່ມຕຳແໜ່ງ</button>
           </div>
           <div id="positions-container"><!-- position blocks --></div>
