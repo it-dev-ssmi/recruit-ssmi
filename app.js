@@ -243,7 +243,7 @@ const I18N = {
     statOpen: "ຕຳແໜ່ງທີ່ເປີດຮັບ",
     branchTitle: "ເລືອກແຂວງທີ່ທ່ານສົນໃຈ",
     branchSub: n => `ທັງໝົດ ${n} ແຂວງ — ກົດເລືອກແຂວງເພື່ອເບິ່ງຕຳແໜ່ງຂອງແຂວງນັ້ນ`,
-    branchLabel: "ແຂວງ",
+    branchLabel: "ຈຸດບໍລິການ",
     dirTitle: "ເລືອກສາຍງານທີ່ທ່ານສົນໃຈ",
     dirSub: "ຄລິກທີ່ກາດເພື່ອເບິ່ງລາຍລະອຽດ ແລະ ຕຳແໜ່ງທີ່ເປີດຮັບ",
     nDuties: n => `${n} ພາລະບົດບາດຫຼັກ`,
@@ -1422,14 +1422,24 @@ function openingCard(item, index) {
   const duties = trList(item.p, "duties");
   const description = tr(item.p, "description");
 
-  /* ປ້າຍສາຂາ ແລະ ຈຳນວນອັດຕາ ວາງທັບຢູ່ເທິງຮູບ */
+  // --- ดึงข้อมูลการแยกเพศ ---
+  const opening = (item.branch.openings || []).find(op => op.posId === item.p.id);
+  let genderText = "";
+  if (opening && item.count > 0) {
+    const parts = [];
+    if (opening.countM > 0) parts.push(`ຊາຍ ${opening.countM}`);
+    if (opening.countF > 0) parts.push(`ຍິງ ${opening.countF}`);
+    if (opening.countAny > 0) parts.push(`ຊາຍ/ຍິງ ${opening.countAny}`);
+    if (parts.length > 0) {
+      genderText = ` (${parts.join(", ")})`;
+    }
+  }
+
+  /* ປ້າຍສາຂາ (เหลือแค่ป้ายสาขาวางทับรูป ส่วนป้ายจำนวนรับย้ายลงไปด้านล่าง) */
   const badges = `
-    <div class="absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-2 p-3">
+    <div class="absolute inset-x-0 top-0 flex p-3">
       <span class="inline-flex items-center rounded-full bg-white/95 px-3 py-1 font-mono text-[0.7rem] font-bold text-indigo-600 shadow-sm backdrop-blur">
         📍 ${escapeHtml(tr(item.branch, "name"))}
-      </span>
-      <span class="rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm">
-        ${t("seatsN")(item.count)}
       </span>
     </div>`;
 
@@ -1440,7 +1450,16 @@ function openingCard(item, index) {
 
       <div class="flex flex-1 flex-col justify-between p-6">
         <div>
-          <h3 class="font-display text-lg font-bold text-slate-900 group-hover:text-indigo-600">${escapeHtml(tr(item.p, "title"))}</h3>
+          <!-- จัดเรียงชื่อตำแหน่ง และ ป้ายจำนวนรับ ให้อยู่บรรทัดเดียวกัน -->
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <h3 class="font-display text-lg font-bold text-slate-900 group-hover:text-indigo-600">${escapeHtml(tr(item.p, "title"))}</h3>
+            
+            <!-- ป้ายแสดงจำนวนและเพศที่ย้ายลงมา -->
+            <span class="shrink-0 rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm">
+              ${t("seatsN")(item.count)}${genderText}
+            </span>
+          </div>
+          
           <p class="mt-1 text-sm font-semibold text-indigo-500">${escapeHtml(tr(item.dept, "name"))}</p>
 
           <!-- แสดงวันที่ปิดรับสมัคร -->
