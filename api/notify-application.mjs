@@ -81,7 +81,7 @@ function buildHtml(d) {
           ${d.advanceProfile ? "ມີຄົນຝາກປະຫວັດໄວ້ລ່ວງໜ້າ" : "ມີໃບສະໝັກໃໝ່ເຂົ້າມາ"}
         </div>
       </div>
-
+// າາ
       <table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>
 
       ${answers ? `
