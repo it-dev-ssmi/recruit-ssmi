@@ -50,8 +50,7 @@ const esc = str => String(str ?? "")
 function buildHtml(d) {
   const rows = [
     ["ຕຳແໜ່ງ", d.position],
-    ["ພະແນກ", d.department],
-    ["ສາຂາ", d.branch || "-"],
+    ["ປະຈຳ", d.branch || "-"],
     ["ຊື່ ແລະ ນາມສະກຸນ", d.name],
     ["ອີເມວ", d.email],
     ["ເບີໂທລະສັບ", d.phone]
