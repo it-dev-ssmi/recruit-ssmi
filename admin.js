@@ -1567,6 +1567,7 @@ function renderStaff(){
             <h3>${escapeHtml(st.name || "(ບໍ່ໄດ້ໃສ່ຊື່)")}</h3>
             <div class="dept-admin-meta">
               <span>${escapeHtml(ROLE_LABEL[st.role] || st.role || "-")}</span>
+              ${st.email ? `<span>📧 ${escapeHtml(st.email)}</span>` : ""}
               <span style="font-family:monospace">${escapeHtml(st.uid)}</span>
             </div>
           </div>
@@ -1580,13 +1581,7 @@ function renderStaff(){
   listEl.querySelectorAll(".dept-admin-card").forEach(card => {
     const uid = card.dataset.uid;
     const st = staffList.find(x => x.uid === uid);
-    card.querySelector("[data-staff-edit]").addEventListener("click", () => {
-      $("staff-uid").value = st.uid;
-      $("staff-name").value = st.name || "";
-      $("staff-role").value = st.role || "interviewer";
-      $("staff-uid").focus();
-      setStatus($("staff-status"), "ແກ້ໄຂແລ້ວກົດ \"ບັນທຶກບັນຊີ\" ເພື່ອຢືນຢັນ");
-    });
+    card.querySelector("[data-staff-edit]").addEventListener("click", () => startEditStaff(st));
     card.querySelector("[data-staff-remove]").addEventListener("click", async () => {
       if(!confirm(`ລຶບການກຳນົດບົດບາດຂອງ "${st.name || st.uid}" ?\nຫຼັງລຶບແລ້ວ ບັນຊີນີ້ຈະກາຍເປັນຜູ້ດູແລລະບົບໂດຍອັດຕະໂນມັດ`)) return;
       try {
@@ -1652,6 +1647,60 @@ $("create-user-btn").addEventListener("click", async () => {
   }
 });
 
+/* ==========================================================================
+   ໂໝດແກ້ໄຂບັນຊີ
+   UID ແລະ ອີເມວ ລ໋ອກໄວ້ (ແກ້ບໍ່ໄດ້ເພາະເປັນຕົວລະບຸຕົວຕົນ)
+   ແກ້ໄດ້ສະເພາະ ຊື່ຜູ້ໃຊ້ ແລະ ບົດບາດ
+   ========================================================================== */
+let editingStaffUid = null;
+
+function startEditStaff(st){
+  editingStaffUid = st.uid;
+
+  $("staff-uid").value = st.uid;
+  $("staff-uid").readOnly = true;
+  $("staff-name").value = st.name || "";
+  $("staff-role").value = st.role || "interviewer";
+
+  /* ອີເມວສະແດງໃຫ້ເຫັນສະເພາະຕອນແກ້ໄຂ ແລະ ຖ້າມີເກັບໄວ້ */
+  const wrap = $("staff-email-wrap");
+  if(st.email){
+    $("staff-email").value = st.email;
+    wrap.hidden = false;
+  } else {
+    wrap.hidden = true;
+  }
+
+  $("staff-form-head").textContent = `ກຳລັງແກ້ໄຂບັນຊີ: ${st.name || st.uid}`;
+  $("staff-form-head").classList.add("staff-editing");
+  $("staff-save-btn").textContent = "ບັນທຶກການແກ້ໄຂ";
+  $("staff-cancel-btn").hidden = false;
+
+  $("staff-name").focus();
+  setStatus($("staff-status"), "ແກ້ໄຂຊື່ ຫຼື ບົດບາດ ແລ້ວກົດ \"ບັນທຶກການແກ້ໄຂ\"");
+  $("staff-form").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function cancelEditStaff(){
+  editingStaffUid = null;
+
+  $("staff-uid").value = "";
+  $("staff-uid").readOnly = false;
+  $("staff-name").value = "";
+  $("staff-email").value = "";
+  $("staff-email-wrap").hidden = true;
+  $("staff-role").value = "interviewer";
+
+  $("staff-form-head").textContent = "ຫຼື ຜູກບົດບາດໃຫ້ບັນຊີທີ່ມີຢູ່ແລ້ວ (ໃສ່ UID ດ້ວຍມື)";
+  $("staff-form-head").classList.remove("staff-editing");
+  $("staff-save-btn").textContent = "ບັນທຶກບັນຊີ";
+  $("staff-cancel-btn").hidden = true;
+
+  setStatus($("staff-status"), "");
+}
+
+$("staff-cancel-btn").addEventListener("click", cancelEditStaff);
+
 $("staff-form").addEventListener("submit", async e => {
   e.preventDefault();
   const uid = $("staff-uid").value.trim();
@@ -1665,10 +1714,12 @@ $("staff-form").addEventListener("submit", async e => {
     if(!confirm("ນີ້ແມ່ນບັນຊີຂອງທ່ານເອງ — ຖ້າຕັ້ງເປັນຜູ້ສຳພາດ ທ່ານຈະເຂົ້າແຜງຄວບຄຸມນີ້ບໍ່ໄດ້ອີກ ຢືນຢັນບໍ່?")) return;
   }
   try {
-    await setDoc(doc(db, STAFF_COLLECTION, uid), { role, name });
+    /* merge ເພື່ອບໍ່ໃຫ້ອີເມວທີ່ເກັບໄວ້ຫາຍໄປ */
+    await setDoc(doc(db, STAFF_COLLECTION, uid), { role, name }, { merge: true });
     setStatus($("staff-status"), `ບັນທຶກຮຽບຮ້ອຍ — ${ROLE_LABEL[role]}`, "ok");
-    $("staff-uid").value = "";
-    $("staff-name").value = "";
+    const wasEditing = !!editingStaffUid;
+    cancelEditStaff();
+    if(wasEditing) setStatus($("staff-status"), `ບັນທຶກການແກ້ໄຂຮຽບຮ້ອຍ — ${ROLE_LABEL[role]}`, "ok");
     await loadStaff();
   } catch (err){
     console.error(err);

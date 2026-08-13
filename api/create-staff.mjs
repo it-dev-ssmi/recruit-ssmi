@@ -107,8 +107,9 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         fields: {
-          role: { stringValue: role },
-          name: { stringValue: name || email }
+          role:  { stringValue: role },
+          name:  { stringValue: name || email },
+          email: { stringValue: email }
         }
       })
     }

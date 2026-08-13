@@ -24,6 +24,12 @@
     border-top:1px dashed #e2e8f0; padding-top:16px;
   }
 
+  /* ຊ່ອງທີ່ແກ້ໄຂບໍ່ໄດ້ */
+  #staff-uid[readonly], #staff-email[readonly]{
+    background:#f1f5f9; color:#64748b; cursor:not-allowed;
+  }
+  .staff-editing{ color:#4f46e5 !important; }
+
   /* ---------- ຮູບຜູ້ສະໝັກໃນບັດໃບສະໝັກ ---------- */
   .app-card-row{ display:flex; gap:20px; align-items:flex-start; }
   .app-card-row .app-card-main{ flex:1 1 auto; min-width:0; }
@@ -232,16 +238,20 @@
                 </div>
               </div>
 
-              <h4 class="staff-manual-head">ຫຼື ຜູກບົດບາດໃຫ້ບັນຊີທີ່ມີຢູ່ແລ້ວ (ໃສ່ UID ດ້ວຍມື)</h4>
+              <h4 class="staff-manual-head" id="staff-form-head">ຫຼື ຜູກບົດບາດໃຫ້ບັນຊີທີ່ມີຢູ່ແລ້ວ (ໃສ່ UID ດ້ວຍມື)</h4>
               <form id="staff-form" novalidate>
                 <div class="field-grid">
                   <label class="field">
                     <span>User UID <em>*</em></span>
                     <input type="text" id="staff-uid" placeholder="ເຊັ່ນ 8f2Kd9...">
                   </label>
+                  <label class="field" id="staff-email-wrap" hidden>
+                    <span>ອີເມວ (ແກ້ໄຂບໍ່ໄດ້)</span>
+                    <input type="text" id="staff-email" readonly>
+                  </label>
                   <label class="field">
-                    <span>ອີເມວ / ຊື່ (ໄວ້ຈື່ເສີຍໆ)</span>
-                    <input type="text" id="staff-name" placeholder="somchai@ssmilaos.com">
+                    <span>ຊື່ຜູ້ໃຊ້ (ສະແດງໃນຕາຕະລາງຄະແນນ)</span>
+                    <input type="text" id="staff-name" placeholder="ທ້າວ ສົມໄຊ ພົມມະວົງ">
                   </label>
                 </div>
                 <div class="field-grid">
@@ -254,7 +264,8 @@
                   </label>
                   <div class="field">
                     <span>&nbsp;</span>
-                    <button type="submit" class="btn btn--primary">ບັນທຶກບັນຊີ</button>
+                    <button type="submit" class="btn btn--primary" id="staff-save-btn">ບັນທຶກບັນຊີ</button>
+                    <button type="button" class="btn btn--ghost" id="staff-cancel-btn" hidden>ຍົກເລີກ</button>
                   </div>
                 </div>
                 <div class="form-actions">
