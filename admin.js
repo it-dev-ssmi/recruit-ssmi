@@ -937,6 +937,31 @@ function renderAnswers(a){
   </details>`;
 }
 
+/* ==========================================================================
+   ຮູບຜູ້ສະໝັກ (3x4) — ດຶງມາຈາກໄຟລ໌ແນບ
+   ໃຫ້ຄວາມສຳຄັນກັບຮູບທີ່ມີຄຳວ່າ 3x4 ກ່ອນ ຈຶ່ງບໍ່ໄປເອົາຮູບບັດປະຈຳຕົວມາສະແດງແທນ
+   ========================================================================== */
+const APP_IMAGE_RE = /\.(jpe?g|png|webp|gif|bmp|heic|heif)(\?|$)/i;
+
+function findApplicantPhoto(a){
+  const files = (a.attachments || []).filter(att => att && att.url);
+  const images = files.filter(att =>
+    APP_IMAGE_RE.test(att.name || "") || APP_IMAGE_RE.test(att.url || ""));
+  if(!images.length) return null;
+  const portrait = images.find(att => /3\s*[xX×]\s*4|ຮູບຂອງທ່ານ|photo/i.test(att.label || ""));
+  return portrait || images[0];
+}
+
+function renderApplicantPhoto(a){
+  const photo = findApplicantPhoto(a);
+  if(!photo){
+    return `<div class="app-photo app-photo--empty">ບໍ່ມີ<br>ຮູບຖ່າຍ</div>`;
+  }
+  return `<div class="app-photo" data-photo="${escapeHtml(photo.url)}" title="ກົດເພື່ອເບິ່ງຮູບຂະໜາດເຕັມ">
+    <img src="${escapeHtml(photo.url)}" alt="ຮູບຂອງ ${escapeHtml(a.name || "")}" loading="lazy">
+  </div>`;
+}
+
 /* ไฟล์แนบ — รองรับทั้ง schema ใหม่ (a.attachments) และเก่า (a.resumeUrl/portfolioUrl) */
 function renderAttachmentLinks(a){
   const links = [];
@@ -972,6 +997,8 @@ function renderApplications(){
   }
   listEl.innerHTML = list.map(a => `
     <div class="app-card" data-docid="${escapeHtml(a.docId)}">
+      <div class="app-card-row">
+      ${renderApplicantPhoto(a)}
       <div class="app-card-main">
         <div class="app-card-top">
           <h3>${escapeHtml(a.name)}</h3>
@@ -992,6 +1019,7 @@ function renderApplications(){
           ${renderAttachmentLinks(a)}
         </div>
       </div>
+      </div>
       <div class="app-card-actions">
         <select class="app-status-select">
           ${STATUS_OPTIONS.map(s => `<option value="${s.value}" ${s.value === (a.status || "new") ? "selected" : ""}>${s.label}</option>`).join("")}
@@ -1000,6 +1028,11 @@ function renderApplications(){
       </div>
     </div>
   `).join("");
+
+  /* ກົດຮູບເພື່ອເບິ່ງຂະໜາດເຕັມ */
+  listEl.querySelectorAll("[data-photo]").forEach(el => {
+    el.addEventListener("click", () => openPhotoLightbox(el.dataset.photo));
+  });
 
   listEl.querySelectorAll(".app-card").forEach(card => {
     const docId = card.dataset.docid;
@@ -1568,6 +1601,57 @@ function renderStaff(){
   });
 }
 
+/* ==========================================================================
+   ສ້າງບັນຊີໃໝ່ຈາກໜ້ານີ້ໂດຍກົງ (ຜ່ານ /api/create-staff)
+   ບໍ່ຕ້ອງເຂົ້າ Firebase Console → Authentication ອີກຕໍ່ໄປ
+   ========================================================================== */
+$("create-user-btn").addEventListener("click", async () => {
+  const btn = $("create-user-btn");
+  const statusEl = $("create-user-status");
+  const email = $("new-user-email").value.trim();
+  const password = $("new-user-password").value;
+  const name = $("new-user-name").value.trim();
+  const role = $("new-user-role").value;
+
+  if(!email || !password){
+    setStatus(statusEl, "ກະລຸນາໃສ່ອີເມວ ແລະ ລະຫັດຜ່ານ", "err");
+    return;
+  }
+  if(password.length < 6){
+    setStatus(statusEl, "ລະຫັດຜ່ານຕ້ອງຍາວຢ່າງໜ້ອຍ 6 ຕົວ", "err");
+    return;
+  }
+  if(!confirm(`ສ້າງບັນຊີໃໝ່?\n\nອີເມວ: ${email}\nລະຫັດຜ່ານ: ${password}\nບົດບາດ: ${role === "admin" ? "ຜູ້ດູແລລະບົບ" : "ຜູ້ສຳພາດ"}\n\nຢ່າລືມແຈ້ງອີເມວ ແລະ ລະຫັດຜ່ານນີ້ໃຫ້ເຈົ້າຂອງບັນຊີ`)) return;
+
+  btn.disabled = true;
+  setStatus(statusEl, "ກຳລັງສ້າງບັນຊີ...");
+  try {
+    const idToken = await auth.currentUser.getIdToken();
+    const res = await fetch("/api/create-staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, email, password, name, role })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if(data.ok){
+      setStatus(statusEl, `ສ້າງບັນຊີ ${email} ສຳເລັດ — ແຈ້ງລະຫັດຜ່ານໃຫ້ເຈົ້າຂອງບັນຊີໄດ້ເລີຍ`, "ok");
+      $("new-user-email").value = "";
+      $("new-user-password").value = "";
+      $("new-user-name").value = "";
+      await loadStaff();
+    } else {
+      setStatus(statusEl, "ສ້າງບໍ່ສຳເລັດ: " + (data.error || res.status), "err");
+    }
+  } catch (err){
+    console.error(err);
+    setStatus(statusEl,
+      "ເອີ້ນ /api/create-staff ບໍ່ໄດ້ — ໜ້ານີ້ຕ້ອງເປີດຜ່ານເວັບຈິງ (Vercel) ບໍ່ແມ່ນ Live Server", "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 $("staff-form").addEventListener("submit", async e => {
   e.preventDefault();
   const uid = $("staff-uid").value.trim();
@@ -1593,3 +1677,26 @@ $("staff-form").addEventListener("submit", async e => {
 });
 
 $("denied-logout").addEventListener("click", () => signOut(auth));
+
+
+/* ==========================================================================
+   ເບິ່ງຮູບຜູ້ສະໝັກຂະໜາດເຕັມ
+   ========================================================================== */
+function openPhotoLightbox(url){
+  const box = $("photo-lightbox");
+  $("photo-lightbox-img").src = url;
+  box.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closePhotoLightbox(){
+  const box = $("photo-lightbox");
+  box.hidden = true;
+  $("photo-lightbox-img").src = "";
+  document.body.style.overflow = "";
+}
+
+$("photo-lightbox").addEventListener("click", closePhotoLightbox);
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && !$("photo-lightbox").hidden) closePhotoLightbox();
+});

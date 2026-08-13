@@ -13,6 +13,53 @@
 <link rel="stylesheet" href="hero-theme.css">
 <link rel="stylesheet" href="admin-theme.css">
 <style>
+  /* ---------- ກ່ອງສ້າງບັນຊີໃໝ່ ---------- */
+  .staff-create-box{
+    border:1px solid #e0e7ff; background:#f8faff; border-radius:16px;
+    padding:18px 20px; margin:16px 0 20px;
+  }
+  .staff-create-box h4{ margin:0 0 4px; font-size:15px; font-weight:800; color:#4f46e5; }
+  .staff-manual-head{
+    margin:24px 0 8px; font-size:13px; font-weight:700; color:#64748b;
+    border-top:1px dashed #e2e8f0; padding-top:16px;
+  }
+
+  /* ---------- ຮູບຜູ້ສະໝັກໃນບັດໃບສະໝັກ ---------- */
+  .app-card-row{ display:flex; gap:20px; align-items:flex-start; }
+  .app-card-row .app-card-main{ flex:1 1 auto; min-width:0; }
+  .app-photo{
+    flex:0 0 auto; width:110px; height:147px;      /* ອັດຕາສ່ວນ 3x4 */
+    border-radius:14px; overflow:hidden; background:#f1f5f9;
+    border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center;
+    cursor:zoom-in; transition:transform .2s ease, box-shadow .2s ease;
+  }
+  .app-photo:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(79,70,229,.18); }
+  .app-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .app-photo--empty{
+    cursor:default; font-size:11px; color:#94a3b8;
+    text-align:center; padding:8px; line-height:1.5;
+  }
+  .app-photo--empty:hover{ transform:none; box-shadow:none; }
+  @media (max-width:640px){
+    .app-photo{ width:86px; height:115px; }
+    .app-card-row{ gap:14px; }
+  }
+
+  /* ---------- ກ່ອງເບິ່ງຮູບຂະໜາດເຕັມ ---------- */
+  #photo-lightbox{
+    position:fixed; inset:0; z-index:300; display:flex;
+    align-items:center; justify-content:center;
+    background:rgba(15,23,42,.85); padding:24px; cursor:zoom-out;
+  }
+  #photo-lightbox[hidden]{ display:none; }
+  #photo-lightbox img{
+    max-width:min(92vw,760px); max-height:88vh;
+    border-radius:16px; box-shadow:0 30px 60px rgba(0,0,0,.5);
+  }
+  #photo-lightbox .lightbox-hint{
+    position:absolute; bottom:24px; color:#e2e8f0; font-size:13px;
+  }
+
   /* ຮູບປະກອບຕຳແໜ່ງ */
   .pos-image-row{ display:flex; gap:14px; align-items:flex-start; margin-top:6px; }
   .pos-image-preview{
@@ -149,9 +196,43 @@
               <h3>ບັນຊີຜູ້ໃຊ້ງານລະບົບ</h3>
               <p class="settings-sub">ກຳນົດວ່າໃຜເປັນ <b>ຜູ້ດູແລລະບົບ</b> (ແກ້ໄຂໄດ້ທຸກຢ່າງ) ແລະ ໃຜເປັນ
               <b>ຜູ້ສຳພາດ</b> (ເບິ່ງໃບສະໝັກຢ່າງດຽວ ຜ່ານ interview.html)
-              <br>ຂັ້ນຕອນ: ສ້າງບັນຊີກ່ອນທີ່ Firebase Console → Authentication → Add user
-              ແລ້ວກັອບປີ້ <b>User UID</b> ມາໃສ່ດ້ານລຸ່ມ
               <br>⚠️ ບັນຊີທີ່ຍັງບໍ່ຢູ່ໃນລາຍການນີ້ ຈະຖືວ່າເປັນຜູ້ດູແລລະບົບໂດຍອັດຕະໂນມັດ</p>
+
+              <!-- ສ້າງບັນຊີໃໝ່ໄດ້ໃນນີ້ເລີຍ ບໍ່ຕ້ອງເຂົ້າ Firebase Console -->
+              <div class="staff-create-box">
+                <h4>ສ້າງບັນຊີໃໝ່</h4>
+                <p class="settings-sub">ໃສ່ອີເມວ ແລະ ລະຫັດຜ່ານ ລະບົບຈະສ້າງບັນຊີ ແລະ ກຳນົດບົດບາດໃຫ້ພ້ອມກັນເລີຍ
+                — ແລ້ວແຈ້ງອີເມວ/ລະຫັດຜ່ານໃຫ້ເຈົ້າຂອງບັນຊີໄປລ໋ອກອິນ</p>
+                <div class="field-grid">
+                  <label class="field">
+                    <span>ອີເມວ <em>*</em></span>
+                    <input type="email" id="new-user-email" placeholder="somchai@ssmilaos.com" autocomplete="off">
+                  </label>
+                  <label class="field">
+                    <span>ລະຫັດຜ່ານ (ຢ່າງໜ້ອຍ 6 ຕົວ) <em>*</em></span>
+                    <input type="text" id="new-user-password" placeholder="ເຊັ່ນ Ssmi@2026" autocomplete="off">
+                  </label>
+                </div>
+                <div class="field-grid">
+                  <label class="field">
+                    <span>ຊື່ຜູ້ໃຊ້ (ສະແດງໃນຕາຕະລາງຄະແນນ)</span>
+                    <input type="text" id="new-user-name" placeholder="ທ້າວ ສົມໄຊ ພົມມະວົງ" autocomplete="off">
+                  </label>
+                  <label class="field">
+                    <span>ບົດບາດ</span>
+                    <select id="new-user-role">
+                      <option value="interviewer">ຜູ້ສຳພາດ — ເບິ່ງໃບສະໝັກຢ່າງດຽວ</option>
+                      <option value="admin">ຜູ້ດູແລລະບົບ — ແກ້ໄຂໄດ້ທຸກຢ່າງ</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn btn--primary" id="create-user-btn">+ ສ້າງບັນຊີ</button>
+                  <span class="form-status" id="create-user-status" role="status"></span>
+                </div>
+              </div>
+
+              <h4 class="staff-manual-head">ຫຼື ຜູກບົດບາດໃຫ້ບັນຊີທີ່ມີຢູ່ແລ້ວ (ໃສ່ UID ດ້ວຍມື)</h4>
               <form id="staff-form" novalidate>
                 <div class="field-grid">
                   <label class="field">
@@ -390,6 +471,11 @@
         </div>
       </form>
     </div>
+  </div>
+
+  <div id="photo-lightbox" hidden>
+    <img id="photo-lightbox-img" alt="">
+    <span class="lightbox-hint">ກົດບ່ອນໃດກໍ່ໄດ້ເພື່ອປິດ</span>
   </div>
 
   <footer class="site-footer">
