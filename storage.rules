@@ -3,6 +3,14 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // admin = มี staff/{uid} ใน Firestore และ role == "admin"
+    // (Google sign-in เปิดอยู่ จึงใช้แค่ request.auth != null ไม่ได้)
+    function isAdmin() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/staff/$(request.auth.uid)).data.role == "admin";
+    }
+
     // Resumes uploaded from the application form.
     // - write: anyone can upload, but only PDFs under 5MB.
     // - read: allowed, because getDownloadURL() needs read access to hand
@@ -16,8 +24,8 @@ service firebase.storage {
       allow write: if request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType == 'application/pdf';
       allow read: if true;
-      // admin (ล็อกอินแล้ว) ลบไฟล์เรซูเม่ได้ เมื่อลบใบสมัครจากหน้า admin
-      allow delete: if request.auth != null;
+      // admin เท่านั้น (เช็คจาก Firestore staff/{uid}) ลบไฟล์ได้ เมื่อลบใบสมัครจากหน้า admin
+      allow delete: if isAdmin();
     }
 
     // ไฟล์แนบจากช่องฟอร์มที่ admin สร้างเอง (ประเภท "แนบไฟล์ PDF" / "แนบรูปภาพ")
@@ -29,7 +37,7 @@ service firebase.storage {
         && (request.resource.contentType == 'application/pdf'
             || request.resource.contentType.matches('image/.*'));
       allow read: if true;
-      allow delete: if request.auth != null;
+      allow delete: if isAdmin();
     }
 
     // Block everything else by default.

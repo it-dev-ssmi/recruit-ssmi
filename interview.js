@@ -8,7 +8,8 @@ import {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, query, orderBy, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
-  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  GoogleAuthProvider, signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   firebaseConfig, APPLICATIONS_COLLECTION
@@ -84,18 +85,21 @@ onAuthStateChanged(auth, async user => {
   if(FIREBASE_NOT_CONFIGURED) return;
   try {
   if(user){
+    /* ອ່ານບົດບາດ — ບໍ່ມີ staff doc = ບໍ່ໄດ້ລົງທະບຽນ ບໍ່ໃຫ້ເຂົ້າ */
+    let role = null;
+    try {
+      const snap = await getDoc(doc(db, STAFF_COLLECTION, user.uid));
+      if(snap.exists() && snap.data().role) role = snap.data().role;
+    } catch (err){ console.warn("ອ່ານບົດບາດບໍ່ໄດ້:", err); }
+    if(!role){
+      await rejectUnregistered(user);
+      return;
+    }
+
     loginView.hidden = true;
     viewerView.hidden = false;
     logoutBtn.hidden = false;
     $("viewer-email").textContent = user.email || "(ບໍ່ຮູ້ອີເມວ)";
-
-    /* ອ່ານບົດບາດ (ຖ້າມີ) ເພື່ອສະແດງປ້າຍໃຫ້ຮູ້ວ່າເປັນ admin ຫຼື ຜູ້ສຳພາດ */
-    let role = "interviewer";
-    try {
-      const snap = await getDoc(doc(db, STAFF_COLLECTION, user.uid));
-      if(snap.exists() && snap.data().role) role = snap.data().role;
-      else role = "admin";   // ບໍ່ມີ staff doc = ບັນຊີເກົ່າ ຖືເປັນ admin
-    } catch (err){ /* ອ່ານບໍ່ໄດ້ກໍ່ບໍ່ເປັນຫຍັງ ໜ້ານີ້ອ່ານຢ່າງດຽວຢູ່ແລ້ວ */ }
     $("viewer-role").textContent = role === "admin" ? "ຜູ້ດູແລລະບົບ" : "ຜູ້ສຳພາດ (ອ່ານຢ່າງດຽວ)";
 
     ME = { uid: user.uid, email: user.email || "", name: "" };
@@ -143,6 +147,55 @@ $("login-form").addEventListener("submit", async e => {
     setStatus($("login-status"), "ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ: " + err.code, "err");
   } finally {
     $("login-submit").disabled = false;
+  }
+});
+
+/* ບັນຊີທີ່ບໍ່ໄດ້ລົງທະບຽນໃນ staff — ອອກຈາກລະບົບ
+   ຖ້າເປັນບັນຊີ Google ທີ່ຫາກໍ່ຖືກສ້າງຂຶ້ນຕອນກົດລ໋ອກອິນ ໃຫ້ລຶບທິ້ງເລີຍ ບໍ່ໃຫ້ຄ້າງໃນ Firebase Auth */
+async function rejectUnregistered(user){
+  const email = user.email || "";
+  const isNewGoogle = user.providerData.length === 1
+    && user.providerData[0].providerId === "google.com"
+    && user.metadata.creationTime === user.metadata.lastSignInTime;
+  try {
+    if(isNewGoogle) await user.delete();
+    else await signOut(auth);
+  } catch (err){
+    console.warn(err);
+    await signOut(auth).catch(() => {});
+  }
+  loginView.hidden = false;
+  viewerView.hidden = true;
+  logoutBtn.hidden = true;
+  setStatus($("login-status"),
+    `ບັນຊີ ${email} ຍັງບໍ່ໄດ້ຮັບສິດເຂົ້າລະບົບ — ກະລຸນາຕິດຕໍ່ພະແນກໄອທີ`, "err");
+}
+
+/* ລ໋ອກອິນດ້ວຍ Google — ກວດສິດຕໍ່ໃນ onAuthStateChanged */
+$("google-login-btn").addEventListener("click", async () => {
+  if(FIREBASE_NOT_CONFIGURED) return;
+  const btn = $("google-login-btn");
+  btn.disabled = true;
+  setStatus($("login-status"), "ກຳລັງເຂົ້າສູ່ລະບົບດ້ວຍ Google...");
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    await signInWithPopup(auth, provider);
+  } catch (err){
+    console.error(err);
+    if(err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request"){
+      setStatus($("login-status"), "");
+      return;
+    }
+    const msg = {
+      "auth/popup-blocked": "Browser ບລັອກໜ້າຕ່າງ popup — ກະລຸນາອະນຸຍາດ popup ແລ້ວລອງໃໝ່",
+      "auth/account-exists-with-different-credential": "ອີເມວນີ້ມີບັນຊີແບບລະຫັດຜ່ານຢູ່ແລ້ວ — ກະລຸນາເຂົ້າດ້ວຍອີເມວ ແລະ ລະຫັດຜ່ານ",
+      "auth/unauthorized-domain": "ໂດເມນນີ້ຍັງບໍ່ໄດ້ຮັບອະນຸຍາດໃນ Firebase → Authentication → Settings → Authorized domains",
+      "auth/operation-not-allowed": "ຍັງບໍ່ໄດ້ເປີດໃຊ້ Google ໃນ Firebase Console → Authentication"
+    }[err.code] || "ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ: " + err.code;
+    setStatus($("login-status"), msg, "err");
+  } finally {
+    btn.disabled = false;
   }
 });
 

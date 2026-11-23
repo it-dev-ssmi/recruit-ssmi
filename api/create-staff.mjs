@@ -27,14 +27,13 @@ async function verifyCaller(apiKey, idToken) {
   return { uid: data.users[0].localId, email: data.users[0].email || "" };
 }
 
-/* ອ່ານບົດບາດຈາກ staff/{uid} — ບໍ່ມີ doc = ຖືເປັນ admin (ຕາມ firestore.rules) */
+/* ອ່ານບົດບາດຈາກ staff/{uid} — ບໍ່ມີ doc = ບໍ່ມີສິດ (ຕາມ firestore.rules) */
 async function getRole(projectId, uid, idToken) {
   const url = `${FIRESTORE}/${projectId}/databases/(default)/documents/staff/${uid}`;
   const r = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
-  if (r.status === 404) return "admin";
   if (!r.ok) return null;
   const doc = await r.json();
-  return doc?.fields?.role?.stringValue || "admin";
+  return doc?.fields?.role?.stringValue || null;
 }
 
 export default async function handler(req, res) {

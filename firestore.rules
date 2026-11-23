@@ -8,8 +8,9 @@ service cloud.firestore {
     //   { role: "admin" }        : full access, can use admin.html
     //   { role: "interviewer" }  : read-only, uses interview.html
     //
-    // An account with NO staff doc is treated as admin, so existing
-    // accounts are not locked out when these rules are published.
+    // An account with NO staff doc has NO access. Google sign-in is enabled,
+    // so any Google account can authenticate — only accounts registered in
+    // staff/{uid} may read applications or change anything.
     // ------------------------------------------------------------------
     function signedIn() {
       return request.auth != null;
@@ -24,8 +25,14 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/staff/$(request.auth.uid));
     }
 
+    // Registered staff (admin or interviewer)
+    function isStaff() {
+      return hasStaffDoc()
+        && staffDoc().data.role in ['admin', 'interviewer'];
+    }
+
     function isAdmin() {
-      return signedIn() && (!hasStaffDoc() || staffDoc().data.role == 'admin');
+      return hasStaffDoc() && staffDoc().data.role == 'admin';
     }
 
     function isValidApplication(data) {
@@ -48,11 +55,11 @@ service cloud.firestore {
 
     // Job applications.
     // create        : anyone (public application form, no login)
-    // read          : any signed-in account (admin + interviewer)
+    // read          : registered staff only (admin + interviewer)
     // update/delete : admin only (interviewers cannot edit or delete)
     match /applications/{applicationId} {
       allow create: if isValidApplication(request.resource.data);
-      allow read: if signedIn();
+      allow read: if isStaff();
       allow update, delete: if isAdmin();
     }
 
@@ -76,7 +83,7 @@ service cloud.firestore {
 
     // Interview evaluations (interview.html).
     // One doc per interviewer per applicant: docId = "{applicationId}__{interviewerUid}"
-    // read          : any signed-in account (admin + interviewer see the scoreboard)
+    // read          : registered staff (admin + interviewer see the scoreboard)
     // create/update : only your own evaluation (docId and interviewerUid must be you)
     // delete        : admin, or the interviewer who wrote it
     match /evaluations/{evalId} {
@@ -86,12 +93,12 @@ service cloud.firestore {
           && evalId == request.resource.data.applicationId + '__' + request.auth.uid;
       }
 
-      allow read: if signedIn();
-      allow create: if signedIn() && isOwnEval();
-      allow update: if signedIn() && isOwnEval()
+      allow read: if isStaff();
+      allow create: if isStaff() && isOwnEval();
+      allow update: if isStaff() && isOwnEval()
         && resource.data.interviewerUid == request.auth.uid;
       allow delete: if isAdmin()
-        || (signedIn() && resource.data.interviewerUid == request.auth.uid);
+        || (isStaff() && resource.data.interviewerUid == request.auth.uid);
     }
 
     // Block everything else by default.

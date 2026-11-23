@@ -35,6 +35,29 @@
   font-size: 0.88rem;
   margin: 0 0 20px;
 }
+.login-divider{
+  display: flex; align-items: center; gap: 12px;
+  margin: 20px 0 16px;
+  color: var(--text-3); font-size: 0.82rem;
+}
+.login-divider::before, .login-divider::after{
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+.btn-google{
+  width: 100%;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 11px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff; color: #1f1f1f;
+  font: 600 0.95rem/1.2 inherit;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .15s ease, box-shadow .15s ease;
+}
+.btn-google:hover{ background: #f8fafc; box-shadow: 0 1px 4px rgba(15,23,42,.12); }
+.btn-google:disabled{ opacity: .6; cursor: default; }
+.btn-google svg{ width: 18px; height: 18px; flex: none; }
 
 /* ---------- Shell: sidebar + content dashboard layout ---------- */
 .admin-shell{ padding: 32px 0 72px; }

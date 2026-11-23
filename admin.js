@@ -9,7 +9,8 @@ import {
   getDocs, getDoc, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
-  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  GoogleAuthProvider, signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getStorage, ref, deleteObject, uploadBytes, getDownloadURL
@@ -53,15 +54,33 @@ const adminView = $("admin-view");
 const deniedView = $("denied-view");
 const logoutBtn = $("logout-btn");
 const STAFF_COLLECTION = "staff";
-let myRole = "admin";
+let myRole = null;
 
-/* ບົດບາດຂອງບັນຊີທີ່ລ໋ອກອິນ — ບໍ່ມີ staff doc = ຖືເປັນ admin (ບັນຊີເກົ່າ) */
+/* ບົດບາດຂອງບັນຊີທີ່ລ໋ອກອິນ — ບໍ່ມີ staff doc = ບໍ່ມີສິດ (null) */
 async function fetchMyRole(uid){
   try {
     const snap = await getDoc(doc(db, STAFF_COLLECTION, uid));
     if(snap.exists() && snap.data().role) return snap.data().role;
   } catch (err){ console.warn("ອ່ານບົດບາດບໍ່ໄດ້:", err); }
-  return "admin";
+  return null;
+}
+
+/* ບັນຊີທີ່ບໍ່ໄດ້ລົງທະບຽນໃນ staff — ອອກຈາກລະບົບ
+   ຖ້າເປັນບັນຊີ Google ທີ່ຫາກໍ່ຖືກສ້າງຂຶ້ນຕອນກົດລ໋ອກອິນ ໃຫ້ລຶບທິ້ງເລີຍ ບໍ່ໃຫ້ຄ້າງໃນ Firebase Auth */
+async function rejectUnregistered(user){
+  const email = user.email || "";
+  const isNewGoogle = user.providerData.length === 1
+    && user.providerData[0].providerId === "google.com"
+    && user.metadata.creationTime === user.metadata.lastSignInTime;
+  try {
+    if(isNewGoogle) await user.delete();
+    else await signOut(auth);
+  } catch (err){
+    console.warn(err);
+    await signOut(auth).catch(() => {});
+  }
+  setStatus($("login-status"),
+    `ບັນຊີ ${email} ຍັງບໍ່ໄດ້ຮັບສິດເຂົ້າລະບົບ — ກະລຸນາຕິດຕໍ່ພະແນກໄອທີ`, "err");
 }
 
 if(FIREBASE_NOT_CONFIGURED){
@@ -73,6 +92,10 @@ onAuthStateChanged(auth, async user => {
   if(FIREBASE_NOT_CONFIGURED) return;
   if(user){
     myRole = await fetchMyRole(user.uid);
+    if(!myRole){
+      await rejectUnregistered(user);
+      return;
+    }
     if(myRole !== "admin"){
       /* ບັນຊີຜູ້ສຳພາດ — ບໍ່ໃຫ້ເຂົ້າແຜງຄວບຄຸມ (rules ກໍ່ບລັອກໄວ້ອີກຊັ້ນ) */
       loginView.hidden = true;
@@ -125,6 +148,34 @@ $("login-form").addEventListener("submit", async e => {
     setStatus($("login-status"), msg, "err");
   } finally {
     $("login-submit").disabled = false;
+  }
+});
+
+/* ລ໋ອກອິນດ້ວຍ Google — ກວດສິດຕໍ່ໃນ onAuthStateChanged */
+$("google-login-btn").addEventListener("click", async () => {
+  if(FIREBASE_NOT_CONFIGURED) return;
+  const btn = $("google-login-btn");
+  btn.disabled = true;
+  setStatus($("login-status"), "ກຳລັງເຂົ້າສູ່ລະບົບດ້ວຍ Google...");
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    await signInWithPopup(auth, provider);
+  } catch (err){
+    console.error(err);
+    if(err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request"){
+      setStatus($("login-status"), "");
+      return;
+    }
+    const msg = {
+      "auth/popup-blocked": "Browser ບລັອກໜ້າຕ່າງ popup — ກະລຸນາອະນຸຍາດ popup ແລ້ວລອງໃໝ່",
+      "auth/account-exists-with-different-credential": "ອີເມວນີ້ມີບັນຊີແບບລະຫັດຜ່ານຢູ່ແລ້ວ — ກະລຸນາເຂົ້າດ້ວຍອີເມວ ແລະ ລະຫັດຜ່ານ",
+      "auth/unauthorized-domain": "ໂດເມນນີ້ຍັງບໍ່ໄດ້ຮັບອະນຸຍາດໃນ Firebase → Authentication → Settings → Authorized domains",
+      "auth/operation-not-allowed": "ຍັງບໍ່ໄດ້ເປີດໃຊ້ Google ໃນ Firebase Console → Authentication"
+    }[err.code] || "ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ: " + err.code;
+    setStatus($("login-status"), msg, "err");
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -1422,7 +1473,7 @@ $("save-form-fields-btn").addEventListener("click", async () => {
 /* ==========================================================================
    ບັນຊີຜູ້ໃຊ້ງານລະບົບ (staff) — admin / ຜູ້ສຳພາດ
    ເກັບໃນ Firestore: staff/{uid} = { role, name }
-   ບັນຊີທີ່ບໍ່ມີ doc ຢູ່ໃນນີ້ ຈະຖືເປັນ admin ໂດຍອັດຕະໂນມັດ (ຕາມ firestore.rules)
+   ບັນຊີທີ່ບໍ່ມີ doc ຢູ່ໃນນີ້ ຈະບໍ່ມີສິດເຂົ້າລະບົບ (ຕາມ firestore.rules)
    ========================================================================== */
 const ROLE_LABEL = { admin: "ຜູ້ດູແລລະບົບ", interviewer: "ຜູ້ສຳພາດ (ອ່ານຢ່າງດຽວ)" };
 let staffList = [];
@@ -1585,7 +1636,11 @@ function renderStaff(){
     const st = staffList.find(x => x.uid === uid);
     card.querySelector("[data-staff-edit]").addEventListener("click", () => startEditStaff(st));
     card.querySelector("[data-staff-remove]").addEventListener("click", async () => {
-      if(!confirm(`ລຶບການກຳນົດບົດບາດຂອງ "${st.name || st.uid}" ?\nຫຼັງລຶບແລ້ວ ບັນຊີນີ້ຈະກາຍເປັນຜູ້ດູແລລະບົບໂດຍອັດຕະໂນມັດ`)) return;
+      if(uid === auth.currentUser?.uid){
+        setStatus($("staff-status"), "ລຶບບັນຊີຂອງຕົວເອງບໍ່ໄດ້ — ຈະເຂົ້າລະບົບບໍ່ໄດ້ອີກ", "err");
+        return;
+      }
+      if(!confirm(`ລຶບການກຳນົດບົດບາດຂອງ "${st.name || st.uid}" ?\nຫຼັງລຶບແລ້ວ ບັນຊີນີ້ຈະເຂົ້າລະບົບບໍ່ໄດ້ອີກ (ທັງໜ້າ admin ແລະ ໜ້າຜູ້ສຳພາດ)`)) return;
       try {
         await deleteDoc(doc(db, STAFF_COLLECTION, uid));
         setStatus($("staff-status"), "ລຶບຮຽບຮ້ອຍ", "ok");
