@@ -278,10 +278,17 @@
             <!-- 1.5 ຫົວຂໍ້ໃຫ້ຄະແນນສຳພາດ -->
             <div class="settings-block">
               <h3>ຫົວຂໍ້ໃຫ້ຄະແນນຕອນສຳພາດ</h3>
-              <p class="settings-sub">ຫົວຂໍ້ເຫຼົ່ານີ້ຈະໄປສະແດງໃນໜ້າຜູ້ສຳພາດ (interview.html) ໃຫ້ຄະແນນ 0–5 ຕໍ່ຫົວຂໍ້
+              <p class="settings-sub">ຫົວຂໍ້ເຫຼົ່ານີ້ຈະໄປສະແດງໃນໜ້າຜູ້ສຳພາດ (interview.html) ໃຫ້ຄະແນນຕໍ່ຫົວຂໍ້ (0–5 ຫຼື ບໍ່ຜ່ານ/ພິຈາລະນາ/ຜ່ານ ຕາມທີ່ເລືອກດ້ານລຸ່ມ)
               ພ້ອມກ່ອງຄຳເຫັນຂອງແຕ່ລະຫົວຂໍ້
               <br>ເພີ່ມ / ລຶບ / ຈັດລຳດັບໄດ້ຕາມຕ້ອງການ — ແນະນຳ 4–6 ຫົວຂໍ້
               <br>⚠️ ຖ້າລຶບຫົວຂໍ້ທີ່ໃຫ້ຄະແນນໄປແລ້ວ ຄະແນນເກົ່າຂອງຫົວຂໍ້ນັ້ນຈະບໍ່ຖືກນຳມາຄິດອີກ</p>
+              <label class="field" style="max-width:420px;margin-bottom:12px">
+                <span>ຮູບແບບການໃຫ້ຄະແນນ</span>
+                <select id="criteria-scale">
+                  <option value="rank5">ຈັດອັນດັບ 0–5 ຄະແນນ</option>
+                  <option value="pass3">0 = ບໍ່ຜ່ານ · 1 = ພິຈາລະນາ · 2 = ຜ່ານ</option>
+                </select>
+              </label>
               <div class="panel-toolbar">
                 <button type="button" class="btn btn--primary" id="add-criterion-btn">+ ເພີ່ມຫົວຂໍ້</button>
                 <button type="button" class="btn btn--ghost" id="save-criteria-btn">ບັນທຶກຫົວຂໍ້ຄະແນນ</button>

@@ -74,6 +74,26 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Interview evaluations (interview.html).
+    // One doc per interviewer per applicant: docId = "{applicationId}__{interviewerUid}"
+    // read          : any signed-in account (admin + interviewer see the scoreboard)
+    // create/update : only your own evaluation (docId and interviewerUid must be you)
+    // delete        : admin, or the interviewer who wrote it
+    match /evaluations/{evalId} {
+      function isOwnEval() {
+        return request.resource.data.interviewerUid == request.auth.uid
+          && request.resource.data.applicationId is string
+          && evalId == request.resource.data.applicationId + '__' + request.auth.uid;
+      }
+
+      allow read: if signedIn();
+      allow create: if signedIn() && isOwnEval();
+      allow update: if signedIn() && isOwnEval()
+        && resource.data.interviewerUid == request.auth.uid;
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.interviewerUid == request.auth.uid);
+    }
+
     // Block everything else by default.
     match /{document=**} {
       allow read, write: if false;

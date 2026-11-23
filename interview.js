@@ -29,6 +29,17 @@ const DEFAULT_CRITERIA = [
   { id: "c5", label_la: "ຄວາມເໝາະສົມກັບອົງກອນ",         label_en: "Fit with the organisation" }
 ];
 
+/* ຮູບແບບການໃຫ້ຄະແນນ — ເລືອກໄດ້ຈາກໜ້າ admin → ແທັບ "ຕັ້ງຄ່າ" */
+const SCALES = {
+  rank5: { max: 5, options: [0, 1, 2, 3, 4, 5].map(n => ({ value: n, label: String(n) })) },
+  pass3: { max: 2, options: [
+    { value: 0, label: "ບໍ່ຜ່ານ",   cls: "is-fail" },
+    { value: 1, label: "ພິຈາລະນາ", cls: "is-maybe" },
+    { value: 2, label: "ຜ່ານ",     cls: "is-pass" }
+  ] }
+};
+let SCALE = SCALES.rank5;
+
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
@@ -338,6 +349,7 @@ async function loadCriteria(){
     const snap = await getDoc(doc(db, SETTINGS_COLLECTION, "interviewCriteria"));
     const list = snap.exists() ? snap.data().criteria : null;
     criteria = (Array.isArray(list) && list.length) ? list : DEFAULT_CRITERIA;
+    SCALE = (snap.exists() && SCALES[snap.data().scale]) || SCALES.rank5;
   } catch (err){
     console.warn("ໂຫຼດຫົວຂໍ້ຄະແນນບໍ່ໄດ້ ໃຊ້ຄ່າເລີ່ມຕົ້ນແທນ:", err);
     criteria = DEFAULT_CRITERIA;
@@ -373,13 +385,28 @@ const evalId = appId => `${appId}__${ME.uid}`;
 const evalsOf = appId => evaluations.filter(e => e.applicationId === appId);
 const myEvalOf = appId => evaluations.find(e => e.applicationId === appId && e.interviewerUid === ME.uid);
 
-/* ຄ່າສະເລ່ຍຂອງໃບປະເມີນໜຶ່ງໃບ (ນັບສະເພາະຫົວຂໍ້ທີ່ໃຫ້ຄະແນນແລ້ວ) */
+/* ຄະແນນເຕັມຂອງໃບປະເມີນ — ໃບເກົ່າທີ່ບໍ່ມີ scaleMax ແມ່ນໃຫ້ 0–5 */
+const evalMax = ev => (typeof ev?.scaleMax === "number" && ev.scaleMax > 0) ? ev.scaleMax : 5;
+
+/* ຄ່າສະເລ່ຍຂອງໃບປະເມີນໜຶ່ງໃບ (ນັບສະເພາະຫົວຂໍ້ທີ່ໃຫ້ຄະແນນແລ້ວ)
+   ປັບເປັນສະເກວປັດຈຸບັນ ເພື່ອໃຫ້ໃບທີ່ໃຫ້ຄະແນນຄົນລະຮູບແບບ ທຽບກັນໄດ້ */
 function evalAverage(ev){
   const vals = criteria
     .map(c => ev?.scores?.[c.id]?.score)
     .filter(v => typeof v === "number");
   if(!vals.length) return null;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
+  const raw = vals.reduce((a, b) => a + b, 0) / vals.length;
+  return raw * SCALE.max / evalMax(ev);
+}
+
+/* ຂໍ້ຄວາມຄະແນນຂອງ 1 ຫົວຂໍ້ ສຳລັບຕາຕະລາງ */
+function scoreCellText(ev, critId){
+  const s = ev?.scores?.[critId]?.score;
+  if(typeof s !== "number") return "-";
+  if(evalMax(ev) === SCALES.pass3.max){
+    return SCALES.pass3.options.find(o => o.value === s)?.label ?? String(s);
+  }
+  return String(s);
 }
 
 /* ຄ່າສະເລ່ຍລວມຂອງຜູ້ສະໝັກ 1 ຄົນ ຈາກທຸກຜູ້ສຳພາດ */
@@ -399,9 +426,10 @@ function interviewerLabel(ev){
 }
 
 function scoreChipsHtml(critId, current){
-  return [0, 1, 2, 3, 4, 5].map(n =>
-    `<button type="button" class="score-chip ${current === n ? "is-active" : ""}"
-       data-crit="${escapeHtml(critId)}" data-score="${n}">${n}</button>`).join("");
+  const wide = SCALE !== SCALES.rank5;
+  return SCALE.options.map(o =>
+    `<button type="button" class="score-chip ${wide ? "score-chip--text" : ""} ${o.cls || ""} ${current === o.value ? "is-active" : ""}"
+       data-crit="${escapeHtml(critId)}" data-score="${o.value}">${escapeHtml(o.label)}</button>`).join("");
 }
 
 function renderEvalBlock(a){
@@ -411,7 +439,7 @@ function renderEvalBlock(a){
 
   const others = evalsOf(a.docId)
     .filter(e => e.interviewerUid !== ME.uid)
-    .map(e => `<div>• <b>${escapeHtml(interviewerLabel(e))}</b> — ${fmt(evalAverage(e))}/5${
+    .map(e => `<div>• <b>${escapeHtml(interviewerLabel(e))}</b> — ${fmt(evalAverage(e))}/${SCALE.max}${
       e.overallComment ? ` — ${escapeHtml(e.overallComment)}` : ""}</div>`).join("");
 
   const rows = criteria.map(c => {
@@ -419,7 +447,7 @@ function renderEvalBlock(a){
     return `
       <div class="eval-row">
         <div class="eval-label">${escapeHtml(c.label_la)}</div>
-        <div class="score-chips">${scoreChipsHtml(c.id, cur.score)}</div>
+        <div class="score-chips">${scoreChipsHtml(c.id, evalMax(mine) === SCALE.max ? cur.score : null)}</div>
         <input type="text" class="eval-comment" data-crit-comment="${escapeHtml(c.id)}"
                value="${escapeHtml(cur.comment || "")}" placeholder="ຄຳເຫັນສຳລັບຫົວຂໍ້ນີ້ (ບໍ່ບັງຄັບ)">
       </div>`;
@@ -427,8 +455,8 @@ function renderEvalBlock(a){
 
   return `
     <details class="app-message eval-block">
-      <summary>ໃຫ້ຄະແນນສຳພາດ ${myAvg !== null ? `— ຂອງທ່ານ ${fmt(myAvg)}/5` : "(ຍັງບໍ່ໄດ້ໃຫ້ຄະແນນ)"}${
-        count ? ` · ສະເລ່ຍລວມ ${fmt(avg)}/5 ຈາກ ${count} ຜູ້ສຳພາດ` : ""}</summary>
+      <summary>ໃຫ້ຄະແນນສຳພາດ ${myAvg !== null ? `— ຂອງທ່ານ ${fmt(myAvg)}/${SCALE.max}` : "(ຍັງບໍ່ໄດ້ໃຫ້ຄະແນນ)"}${
+        count ? ` · ສະເລ່ຍລວມ ${fmt(avg)}/${SCALE.max} ຈາກ ${count} ຜູ້ສຳພາດ` : ""}</summary>
       <div data-eval-app="${escapeHtml(a.docId)}">
         ${rows}
         <div class="eval-row">
@@ -502,7 +530,7 @@ async function saveEvaluation(appId, box){
   const result = await Swal.fire({
     icon: 'success',
     title: 'ຢືນຢັນການໃຫ້ຄະແນນ?',
-    html: `ຄະແນນສະເລ່ຍຂອງທ່ານຄື: <b style="color:#4f46e5; font-size:18px;">${avgScore.toFixed(2)}/5</b><br>ທ່ານຕ້ອງການບັນທຶກຄະແນນນີ້ເລີຍຫຼືບໍ່?`,
+    html: `ຄະແນນສະເລ່ຍຂອງທ່ານຄື: <b style="color:#4f46e5; font-size:18px;">${avgScore.toFixed(2)}/${SCALE.max}</b><br>ທ່ານຕ້ອງການບັນທຶກຄະແນນນີ້ເລີຍຫຼືບໍ່?`,
     showCancelButton: true,
     confirmButtonColor: '#4f46e5',
     cancelButtonColor: '#94a3b8',
@@ -527,6 +555,7 @@ async function saveEvaluation(appId, box){
     interviewerEmail: ME.email,
     interviewerName: ME.name || ME.email,
     scores,
+    scaleMax: SCALE.max,
     overallComment: box.querySelector("[data-overall]")?.value.trim() || "",
     updatedAt: serverTimestamp()
   };
@@ -543,7 +572,7 @@ async function saveEvaluation(appId, box){
     const local = { docId: evalId(appId), ...payload, updatedAt: new Date() };
     if(idx >= 0) evaluations[idx] = local; else evaluations.push(local);
 
-    statusEl.textContent = `ບັນທຶກແລ້ວ — ຄະແນນຂອງທ່ານ ${fmt(avgScore)}/5`;
+    statusEl.textContent = `ບັນທຶກແລ້ວ — ຄະແນນຂອງທ່ານ ${fmt(avgScore)}/${SCALE.max}`;
     
     // อัปเดตตารางคะแนนแบบ Real-time (ฟังก์ชันที่เพิ่มไปก่อนหน้านี้)
     if (typeof updateLiveEvaluations === "function") {
@@ -617,7 +646,7 @@ function renderScoreboard(){
     const rows = evs.map(ev => `
       <tr>
         <td><b>${escapeHtml(interviewerLabel(ev))}</b></td>
-        ${criteria.map(c => `<td>${ev.scores?.[c.id]?.score ?? "-"}</td>`).join("")}
+        ${criteria.map(c => `<td>${escapeHtml(scoreCellText(ev, c.id))}</td>`).join("")}
         <td><b>${fmt(evalAverage(ev))}</b></td>
         <td>${escapeHtml(ev.overallComment || "")}</td>
       </tr>`).join("");
@@ -643,7 +672,7 @@ function renderScoreboard(){
             <span>🏢 ${escapeHtml(appBranchLabel(x.a))}</span>
             <span>👤 ${x.count} ຜູ້ສຳພາດ</span>
           </div>
-          <div class="rank-bar"><i style="width:${(x.avg / 5 * 100).toFixed(1)}%"></i></div>
+          <div class="rank-bar"><i style="width:${(x.avg / SCALE.max * 100).toFixed(1)}%"></i></div>
           <details class="rank-detail">
             <summary>ເບິ່ງລາຍລະອຽດຄະແນນ</summary>
             <table>
@@ -657,7 +686,7 @@ function renderScoreboard(){
         </div>
         <div class="rank-score">
           <b>${fmt(x.avg)}</b>
-          <span>ຈາກ 5 ຄະແນນ</span>
+          <span>ຈາກ ${SCALE.max} ຄະແນນ</span>
         </div>
       </div>`;
   }).join("");
@@ -786,15 +815,15 @@ function updateLiveEvaluations() {
     if (detailsEl) {
       const summaryEl = detailsEl.querySelector("summary");
       if (summaryEl) {
-        summaryEl.textContent = `ໃຫ້ຄະແນນສຳພາດ ${myAvg !== null ? `— ຂອງທ່ານ ${fmt(myAvg)}/5` : "(ຍັງບໍ່ໄດ້ໃຫ້ຄະແນນ)"}${
-          count ? ` · ສະເລ່ຍລວມ ${fmt(avg)}/5 ຈາກ ${count} ຜູ້ສຳພາດ` : ""}`;
+        summaryEl.textContent = `ໃຫ້ຄະແນນສຳພາດ ${myAvg !== null ? `— ຂອງທ່ານ ${fmt(myAvg)}/${SCALE.max}` : "(ຍັງບໍ່ໄດ້ໃຫ້ຄະແນນ)"}${
+          count ? ` · ສະເລ່ຍລວມ ${fmt(avg)}/${SCALE.max} ຈາກ ${count} ຜູ້ສຳພາດ` : ""}`;
       }
     }
     
     // 3. อัปเดตรายชื่อและคะแนนของกรรมการคนอื่นด้านล่าง
     const others = evalsOf(appId)
       .filter(e => e.interviewerUid !== ME.uid)
-      .map(e => `<div>• <b>${escapeHtml(interviewerLabel(e))}</b> — ${fmt(evalAverage(e))}/5${
+      .map(e => `<div>• <b>${escapeHtml(interviewerLabel(e))}</b> — ${fmt(evalAverage(e))}/${SCALE.max}${
         e.overallComment ? ` — ${escapeHtml(e.overallComment)}` : ""}</div>`).join("");
         
     let othersDiv = box.querySelector(".eval-others");

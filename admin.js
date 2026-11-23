@@ -1177,6 +1177,7 @@ async function loadSettings(){
     // 2. นำข้อมูลหัวข้อคะแนนมาเตรียมแสดงผล
     const list = critSnap.exists() ? critSnap.data().criteria : null;
     interviewCriteria = (Array.isArray(list) && list.length) ? list : structuredClone(DEFAULT_CRITERIA);
+    $("criteria-scale").value = (critSnap.exists() && critSnap.data().scale === "pass3") ? "pass3" : "rank5";
     renderCriteria();
 
   } catch (err){
@@ -1541,7 +1542,8 @@ $("save-criteria-btn").addEventListener("click", async () => {
     return;
   }
   try {
-    await setDoc(doc(db, SETTINGS_COLLECTION, "interviewCriteria"), { criteria: interviewCriteria }, { merge: true });
+    const scale = $("criteria-scale").value === "pass3" ? "pass3" : "rank5";
+    await setDoc(doc(db, SETTINGS_COLLECTION, "interviewCriteria"), { criteria: interviewCriteria, scale }, { merge: true });
     setStatus($("criteria-status"), `ບັນທຶກຮຽບຮ້ອຍ (${interviewCriteria.length} ຫົວຂໍ້)`, "ok");
     renderCriteria();
   } catch (err){
