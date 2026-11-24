@@ -113,6 +113,7 @@ onAuthStateChanged(auth, async user => {
     await loadCriteria();
     await loadApplications();
   } else {
+    stopApplications();
     loginView.hidden = false;
     viewerView.hidden = true;
     logoutBtn.hidden = true;
@@ -222,20 +223,98 @@ const appFilters = { branch: "", dept: "", position: "", status: "", q: "" };
 function appBranchKey(a){ return (a.branch || "").trim() || NO_BRANCH; }
 function appBranchLabel(a){ return (a.branch || "").trim() || "ບໍ່ໄດ້ລະບຸສາຂາ"; }
 
-async function loadApplications(){
+/* ໃບສະໝັກແບບ Realtime — admin ປ່ຽນລຳດັບສຳພາດ / ສະຖານະ ຫຼື ມີໃບສະໝັກໃໝ່
+   ໜ້ານີ້ຈະອັບເດດເອງທັນທີ ໂດຍບໍ່ລ້າງຄະແນນທີ່ກຳລັງກອກຢູ່ */
+let appsUnsub = null;
+const cardCache = new Map();   // docId -> <div class="app-card"> (ເກັບໄວ້ເພື່ອຮັກສາສິ່ງທີ່ກຳລັງກອກ)
+
+function loadApplications(){
+  if(appsUnsub) return Promise.resolve();
   const listEl = $("apps-list");
   listEl.innerHTML = `<p class="admin-loading">ກຳລັງໂຫຼດໃບສະໝັກ...</p>`;
-  try {
-    const snap = await getDocs(query(collection(db, APPLICATIONS_COLLECTION), orderBy("submittedAt", "desc")));
-    applications = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-    await loadEvaluations();
-    renderFilterOptions();
-    renderApplications();
-    renderScoreboard();
-  } catch (err){
-    console.error(err);
-    listEl.innerHTML = `<p class="admin-error">ໂຫຼດໃບສະໝັກບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
+  return new Promise(resolve => {
+    let first = true;
+    appsUnsub = onSnapshot(
+      query(collection(db, APPLICATIONS_COLLECTION), orderBy("submittedAt", "desc")),
+      async snap => {
+        applications = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        const initial = first;
+        if(first){ first = false; await loadEvaluations(); }
+        renderFilterOptions();
+        renderApplications({ flashMoves: !initial });
+        renderScoreboard();
+        resolve();
+      },
+      err => {
+        console.error(err);
+        listEl.innerHTML = `<p class="admin-error">ໂຫຼດໃບສະໝັກບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
+        appsUnsub = null;
+        resolve();
+      });
+  });
+}
+
+function stopApplications(){
+  if(appsUnsub){ appsUnsub(); appsUnsub = null; }
+  cardCache.clear();
+  applications = [];
+}
+
+/* ລຳດັບສຳພາດ (interviewOrder) ທີ່ admin ຕັ້ງ — ຕົວເລກນ້ອຍ = ສຳພາດກ່ອນ
+   ຄົນທີ່ຍັງບໍ່ໄດ້ຈັດຄິວ ຈະຢູ່ທ້າຍ (ລ່າສຸດກ່ອນ) */
+const queueNo = a => (Number.isFinite(a.interviewOrder) && a.interviewOrder > 0) ? a.interviewOrder : null;
+const submittedMs = a => a.submittedAt?.toMillis?.() || 0;
+function byQueue(x, y){
+  const qx = queueNo(x), qy = queueNo(y);
+  if(qx !== null && qy !== null) return (qx - qy) || (submittedMs(x) - submittedMs(y));
+  if(qx !== null) return -1;
+  if(qy !== null) return 1;
+  return submittedMs(y) - submittedMs(x);
+}
+const queueBadgeHtml = a => queueNo(a) !== null ? `<span class="queue-badge">ຄິວທີ ${queueNo(a)}</span>` : "";
+
+/* ສະຖານະທີ່ຖືວ່າ "ສຳພາດແລ້ວ" — admin ກົດໃນແທັບ "ລຳດັບສຳພາດ" */
+const QUEUE_DONE = new Set(["interviewed", "accepted", "rejected"]);
+const isQueueDone = a => QUEUE_DONE.has(a.status);
+
+/* ຄິວທັງໝົດ / ຄົນທີ່ກຳລັງສຳພາດ (ຄິວທຳອິດທີ່ຍັງບໍ່ສຳພາດ) / ຄົນຖັດໄປ */
+function queueState(){
+  const queued = applications.filter(a => queueNo(a) !== null).sort(byQueue);
+  const pending = queued.filter(a => !isQueueDone(a));
+  return { queued, current: pending[0] || null, next: pending[1] || null,
+           doneCount: queued.length - pending.length };
+}
+
+/* ໃສ່ class ໃຫ້ບັດ: ກຳລັງສຳພາດ (ໄຮໄລທ໌) / ສຳພາດແລ້ວ (ຈາງລົງ) */
+function applyQueueState(card, a, currentId){
+  const inQueue = queueNo(a) !== null;
+  card.classList.toggle("is-current", a.docId === currentId);
+  card.classList.toggle("is-done", inQueue && isQueueDone(a));
+}
+
+/* ປ້າຍເທິງລາຍການ: "ຕອນນີ້ຮອດຄິວ ... · ຖັດໄປ ..." */
+function renderQueueNow(){
+  const box = $("queue-now");
+  if(!box) return;
+  const { queued, current, next, doneCount } = queueState();
+  if(!queued.length || $("apps-list").hidden){ box.hidden = true; return; }
+  box.hidden = false;
+  if(!current){
+    box.innerHTML = `<div class="queue-now-main"><span class="queue-now-label">✓ ສຳພາດຄົບທຸກຄິວແລ້ວ</span>
+      <span class="queue-now-sub">${queued.length} ຄົນ</span></div>`;
+    return;
   }
+  box.innerHTML = `
+    <div class="queue-now-main">
+      <span class="queue-now-label">ຕອນນີ້ຮອດຄິວທີ ${queueNo(current)}</span>
+      <b class="queue-now-name">${escapeHtml(current.name || "-")}</b>
+      <span class="queue-now-sub">${escapeHtml(current.position || "-")} · ${escapeHtml(appBranchLabel(current))}</span>
+    </div>
+    <div class="queue-now-side">
+      ${next ? `<span>ຖັດໄປ: <b>${escapeHtml(next.name || "-")}</b> (ຄິວທີ ${queueNo(next)})</span>` : "<span>ຄົນສຸດທ້າຍຂອງຄິວ</span>"}
+      <span>ສຳພາດແລ້ວ ${doneCount} / ${queued.length} ຄົນ</span>
+      <button type="button" class="btn btn--ghost btn--sm" data-goto="${escapeHtml(current.docId)}">ໄປທີ່ບັດ ↓</button>
+    </div>`;
 }
 
 function formatDate(ts){
@@ -256,7 +335,7 @@ function filteredApplications(){
       if(!hay.includes(q)) return false;
     }
     return true;
-  });
+  }).sort(byQueue);
 }
 
 function countBy(getKey){
@@ -337,7 +416,7 @@ function renderAttachmentLinks(a){
   return links.length ? links.join("") : `<span class="app-nolink">ບໍ່ມີໄຟລ໌ແນບ</span>`;
 }
 
-function renderApplications(){
+function renderApplications({ flashMoves = false } = {}){
   const listEl = $("apps-list");
   const list = filteredApplications();
 
@@ -345,6 +424,7 @@ function renderApplications(){
     ? `ສະແດງ ${list.length} ຈາກທັງໝົດ ${applications.length} ໃບສະໝັກ`
     : "";
 
+  renderQueueNow();
   if(!applications.length){
     listEl.innerHTML = `<div class="admin-empty"><p>ຍັງບໍ່ມີໃບສະໝັກເຂົ້າມາ</p></div>`;
     return;
@@ -355,12 +435,47 @@ function renderApplications(){
     return;
   }
 
-  listEl.innerHTML = list.map(a => `
-    <div class="app-card">
+  /* ລຶບຂໍ້ຄວາມ placeholder (ກຳລັງໂຫຼດ / ບໍ່ພົບ) ທີ່ບໍ່ແມ່ນບັດ */
+  [...listEl.children].forEach(ch => { if(!ch.classList.contains("app-card")) ch.remove(); });
+
+  /* ລຶບບັດຂອງໃບສະໝັກທີ່ຖືກລຶບໄປແລ້ວອອກຈາກ cache */
+  const alive = new Set(applications.map(a => a.docId));
+  for(const id of [...cardCache.keys()]) if(!alive.has(id)) cardCache.delete(id);
+
+  const prevPos = new Map([...listEl.children].map((c, i) => [c.dataset.docid, i]));
+  const currentId = queueState().current?.docId;
+
+  list.forEach((a, i) => {
+    let card = cardCache.get(a.docId);
+    if(!card){
+      card = buildAppCard(a);
+      cardCache.set(a.docId, card);
+    } else {
+      refreshAppCard(card, a);
+    }
+    applyQueueState(card, a, currentId);
+    const at = listEl.children[i];
+    if(at !== card){
+      listEl.insertBefore(card, at || null);
+      /* ກະພິບບັດທີ່ຖືກຍ້າຍຄິວ ໃຫ້ຜູ້ສຳພາດສັງເກດເຫັນ */
+      if(flashMoves && prevPos.has(a.docId) && prevPos.get(a.docId) !== i){
+        card.classList.remove("is-queue-moved");
+        void card.offsetWidth;
+        card.classList.add("is-queue-moved");
+      }
+    }
+  });
+  while(listEl.children.length > list.length) listEl.lastElementChild.remove();
+}
+
+function appCardHtml(a){
+  return `
+    <div class="app-card" data-docid="${escapeHtml(a.docId)}">
      <div class="app-card-row">
       ${renderPhoto(a)}
       <div class="app-card-main">
         <div class="app-card-top">
+          <span class="queue-slot">${queueBadgeHtml(a)}</span>
           <h3>${escapeHtml(a.name)}</h3>
           <span class="app-status app-status--${escapeHtml(a.status || "new")}">${
             escapeHtml(STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status || "ໃໝ່")}</span>
@@ -382,14 +497,30 @@ function renderApplications(){
       </div>
      </div>
     </div>
-  `).join("");
+  `;
+}
 
-  /* ກົດຮູບເພື່ອຂະຫຍາຍ */
-  listEl.querySelectorAll("[data-photo]").forEach(el => {
+/* ສ້າງບັດໃໝ່ 1 ໃບ ພ້ອມຜູກ event (ເຮັດຄັ້ງດຽວຕໍ່ໃບສະໝັກ) */
+function buildAppCard(a){
+  const t = document.createElement("template");
+  t.innerHTML = appCardHtml(a).trim();
+  const card = t.content.firstElementChild;
+  card.querySelectorAll("[data-photo]").forEach(el => {
     el.addEventListener("click", () => openLightbox(el.dataset.photo));
   });
+  bindEvalHandlers(card);
+  return card;
+}
 
-  bindEvalHandlers(listEl);
+/* ອັບເດດສະເພາະສ່ວນທີ່ admin ປ່ຽນໄດ້ (ຄິວ + ສະຖານະ) ບໍ່ແຕະສ່ວນໃຫ້ຄະແນນ */
+function refreshAppCard(card, a){
+  const slot = card.querySelector(".queue-slot");
+  if(slot) slot.innerHTML = queueBadgeHtml(a);
+  const st = card.querySelector(".app-card-top .app-status");
+  if(st){
+    st.className = "app-status app-status--" + (a.status || "new");
+    st.textContent = STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status || "ໃໝ່";
+  }
 }
 
 /* ==========================================================================
@@ -755,6 +886,7 @@ document.querySelectorAll(".view-tab").forEach(tab => {
     document.querySelectorAll(".apps-only").forEach(el => { el.hidden = !showApps; });
     $("apps-list").hidden = !showApps;
     $("scores-panel").hidden = showApps;
+    renderQueueNow();
     if(!showApps) renderScoreboard();
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
@@ -847,7 +979,23 @@ $("my-name").addEventListener("input", e => {
   try { localStorage.setItem("ssmi-my-name", ME.name); } catch (err){}
 });
 
-$("reload-apps-btn").addEventListener("click", loadApplications);
+/* ປຸ່ມ "ໄປທີ່ບັດ" ໃນປ້າຍຄິວ */
+$("queue-now")?.addEventListener("click", e => {
+  const id = e.target.closest("[data-goto]")?.dataset.goto;
+  const card = id && cardCache.get(id);
+  if(card?.isConnected){
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+  } else if(id){
+    alert("ບັດນີ້ຖືກເຊື່ອງດ້ວຍຕົວກອງ — ກົດ \"ລ້າງຕົວກອງ\" ກ່ອນ");
+  }
+});
+
+$("reload-apps-btn").addEventListener("click", () => {
+  cardCache.clear();
+  $("apps-list").innerHTML = "";
+  renderApplications();
+  renderScoreboard();
+});
 $("print-btn").addEventListener("click", () => window.print());
 
 /* ฟังก์ชันสำหรับอัปเดตคะแนนแบบ Real-time โดยไม่รีเฟรชช่องที่กำลังพิมพ์ */

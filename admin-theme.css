@@ -350,6 +350,150 @@
 .app-status--accepted{ background: var(--success-soft); color: var(--success); }
 .app-status--rejected{ background: var(--error-soft); color: var(--error); }
 
+/* ---------- ລຳດັບສຳພາດ (ຄິວ) ---------- */
+.queue-badge{
+  display: inline-flex; align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  font-size: 0.8rem; font-weight: 700;
+  white-space: nowrap;
+}
+/* แท็บลำดับสัมภาษณ์ (admin) */
+.queue-board{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.queue-col{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+.queue-col--main{ border-color: #c7d2fe; background: linear-gradient(180deg, #f5f3ff 0%, var(--surface) 120px); }
+.queue-col-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.queue-col-head h3{ margin: 0; font-family: var(--font-display); font-size: 1.05rem; color: var(--text-1); }
+.queue-col-count{ font-size: 0.82rem; color: var(--text-3); font-weight: 600; }
+.queue-pool-filters{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.queue-pool-filters input{ grid-column: 1 / -1; }
+.queue-pool-filters select, .queue-pool-filters input{
+  width: 100%; min-width: 0; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 10px;
+  font: inherit; font-size: 0.88rem; background: var(--surface); color: var(--text-1);
+}
+.queue-list{
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 64px;
+}
+.queue-list--pool{ max-height: 70vh; overflow-y: auto; padding-right: 4px; }
+.queue-item{
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.queue-item:hover{ border-color: #a5b4fc; box-shadow: 0 2px 8px rgba(79,70,229,.10); }
+.queue-item:active{ cursor: grabbing; }
+.queue-handle{ color: var(--text-3); letter-spacing: -2px; font-weight: 700; flex: none; }
+.queue-no{
+  flex: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff; font-weight: 800; font-size: 0.9rem;
+}
+.queue-info{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.queue-info > b{ color: var(--text-1); font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
+.queue-info > span{ color: var(--text-3); font-size: 0.8rem; line-height: 1.35; overflow-wrap: anywhere; }
+.queue-meta{ display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.queue-item .app-status{ flex: none; font-size: 0.72rem; }
+.queue-act{
+  flex: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--surface);
+  color: #4f46e5; font-size: 1.05rem; font-weight: 700; line-height: 1;
+  cursor: pointer;
+}
+.queue-act:hover{ background: #eef2ff; }
+.queue-act--remove{ color: var(--error); }
+.queue-act--remove:hover{ background: var(--error-soft); }
+.queue-done-btn{
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2, #334155);
+  font: inherit; font-size: 0.8rem; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+}
+.queue-done-btn:hover{ border-color: #16a34a; color: #16a34a; }
+.queue-done-btn.is-on{ background: #16a34a; border-color: #16a34a; color: #fff; }
+.queue-done-btn:disabled{ opacity: .6; cursor: default; }
+.queue-item.is-done{ opacity: .6; background: #f8fafc; }
+.queue-item.is-done .queue-no{ background: #16a34a; }
+.queue-item.is-current{ border: 2px solid #4f46e5; box-shadow: 0 4px 14px rgba(79,70,229,.18); }
+.queue-now-tag{
+  font-style: normal; font-size: 0.7rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+  background: #4f46e5; color: #fff; vertical-align: middle;
+}
+
+/* ป้าย "ตอนนี้ถึงคิวใคร" (หน้า interview) */
+.queue-now{
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px;
+  margin: 0 0 18px;
+  padding: 16px 20px;
+  border-radius: var(--radius-l);
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(79,70,229,.25);
+  position: sticky; top: 8px; z-index: 5;
+}
+.queue-now[hidden]{ display: none; }
+.queue-now-main{ display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.queue-now-label{ font-size: 0.82rem; font-weight: 600; opacity: .9; }
+.queue-now-name{ font-size: 1.35rem; font-weight: 800; line-height: 1.2; }
+.queue-now-sub{ font-size: 0.85rem; opacity: .85; }
+.queue-now-side{ display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 0.85rem; }
+.queue-now-side .btn{ background: rgba(255,255,255,.15); color: #fff; border-color: rgba(255,255,255,.4); }
+.queue-now-side .btn:hover{ background: rgba(255,255,255,.28); }
+@media (max-width: 720px){
+  .queue-now-side{ align-items: flex-start; }
+}
+.app-card.is-current{ border: 2px solid #4f46e5; box-shadow: 0 0 0 4px rgba(79,70,229,.12), var(--shadow-md); }
+.app-card.is-done{ opacity: .6; }
+.app-card.is-done:hover, .app-card.is-done:focus-within{ opacity: 1; }
+
+.queue-ghost{ opacity: .35; border-style: dashed; }
+.queue-chosen{ box-shadow: 0 8px 20px rgba(79,70,229,.25); }
+.queue-empty{
+  margin: -64px 0 0; min-height: 64px;
+  display: grid; place-items: center;
+  border: 2px dashed #c7d2fe; border-radius: 12px;
+  color: var(--text-3); font-size: 0.88rem; text-align: center;
+  pointer-events: none;
+}
+@media (max-width: 860px){
+  .queue-board{ grid-template-columns: 1fr; }
+  .queue-item{ align-items: flex-start; }
+}
+.app-card.is-queue-moved{ animation: queue-flash 1.2s ease; }
+@keyframes queue-flash{
+  0%{ box-shadow: 0 0 0 3px rgba(79,70,229,.45); }
+  100%{ box-shadow: 0 0 0 0 rgba(79,70,229,0); }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 720px){
   .dept-admin-card, .app-card{ flex-direction: column; }

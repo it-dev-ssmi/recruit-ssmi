@@ -6,7 +6,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
   getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc,
-  getDocs, getDoc, query, orderBy
+  getDocs, getDoc, query, orderBy, deleteField, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -191,6 +191,8 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     $("tab-branches").hidden = btn.dataset.tab !== "branches";
     $("tab-applications").hidden = btn.dataset.tab !== "applications";
     $("tab-settings").hidden = btn.dataset.tab !== "settings";
+    $("tab-queue").hidden = btn.dataset.tab !== "queue";
+    if(btn.dataset.tab === "queue") renderQueueBoard();
   });
 });
 
@@ -895,15 +897,26 @@ const STATUS_OPTIONS = [
 ];
 let applications = [];
 const NO_BRANCH = "__none__";   // ໃບສະໝັກເກົ່າທີ່ບໍ່ໄດ້ບັນທຶກສາຂາໄວ້
-const appFilters = { branch: "", dept: "", status: "", q: "" };
+const appFilters = { branch: "", dept: "", status: "", q: "", sort: "newest" };
 
 /* ຊື່ສາຂາ / ພະແນກ ຂອງໃບສະໝັກ (ຮອງຮັບຂໍ້ມູນເກົ່າທີ່ບໍ່ມີຟິວ branch) */
 function appBranchKey(a){ return (a.branch || "").trim() || NO_BRANCH; }
 function appBranchLabel(a){ return (a.branch || "").trim() || "ບໍ່ໄດ້ລະບຸສາຂາ"; }
 
+/* ລຳດັບສຳພາດ (interviewOrder) — ຕົວເລກນ້ອຍ = ສຳພາດກ່ອນ, ບໍ່ມີ = ຍັງບໍ່ໄດ້ຈັດຄິວ */
+const queueNo = a => (Number.isFinite(a.interviewOrder) && a.interviewOrder > 0) ? a.interviewOrder : null;
+const submittedMs = a => a.submittedAt?.toMillis?.() || 0;
+function byQueue(x, y){
+  const qx = queueNo(x), qy = queueNo(y);
+  if(qx !== null && qy !== null) return (qx - qy) || (submittedMs(x) - submittedMs(y));
+  if(qx !== null) return -1;
+  if(qy !== null) return 1;
+  return submittedMs(y) - submittedMs(x);
+}
+
 function filteredApplications(){
   const q = appFilters.q.trim().toLowerCase();
-  return applications.filter(a => {
+  const list = applications.filter(a => {
     if(appFilters.branch && appBranchKey(a) !== appFilters.branch) return false;
     if(appFilters.dept && (a.department || "") !== appFilters.dept) return false;
     if(appFilters.status && (a.status || "new") !== appFilters.status) return false;
@@ -914,6 +927,7 @@ function filteredApplications(){
     }
     return true;
   });
+  return appFilters.sort === "queue" ? list.sort(byQueue) : list;
 }
 
 /* ເຕີມຕົວເລືອກໃນຕົວກອງ ຈາກຂໍ້ມູນຈິງທີ່ມີຢູ່ + ລາຍຊື່ສາຂາໃນລະບົບ */
@@ -966,6 +980,7 @@ async function loadApplications(){
     $("app-count").textContent = applications.length ? `(${applications.length})` : "";
     renderAppFilterOptions();
     renderApplications();
+    renderQueueBoard();
   } catch (err){
     console.error(err);
     listEl.innerHTML = `<p class="admin-error">ໂຫຼດໃບສະໝັກບໍ່ສຳເລັດ: ${escapeHtml(err.message)}</p>`;
@@ -1052,6 +1067,7 @@ function renderApplications(){
       ${renderApplicantPhoto(a)}
       <div class="app-card-main">
         <div class="app-card-top">
+          ${queueNo(a) !== null ? `<span class="queue-badge">ຄິວທີ ${queueNo(a)}</span>` : ""}
           <h3>${escapeHtml(a.name)}</h3>
           <span class="app-status app-status--${escapeHtml(a.status || "new")}">${escapeHtml(STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status || "ໃໝ່")}</span>
         </div>
@@ -1130,6 +1146,186 @@ $("filter-branch").addEventListener("change", e => { appFilters.branch = e.targe
 $("filter-dept").addEventListener("change",   e => { appFilters.dept   = e.target.value; renderApplications(); });
 $("filter-status").addEventListener("change", e => { appFilters.status = e.target.value; renderApplications(); });
 $("filter-search").addEventListener("input",  e => { appFilters.q      = e.target.value; renderApplications(); });
+$("sort-apps").addEventListener("change",     e => { appFilters.sort   = e.target.value; renderApplications(); });
+/* ==========================================================================
+   ລຳດັບສຳພາດ — ລາກວາງເພື່ອຈັດຄິວ (SortableJS)
+   ບັນທຶກເປັນ applications/{id}.interviewOrder = 1, 2, 3 ... (ບໍ່ມີຊ່ອງວ່າງ ບໍ່ຊ້ຳ)
+   ໜ້າຜູ້ສຳພາດຟັງ onSnapshot ຈຶ່ງອັບເດດເອງທັນທີ
+   ========================================================================== */
+const queueFilters = { branch: "", status: "", q: "" };
+let queueSortables = [];
+
+/* ສະຖານະທີ່ຖືວ່າ "ສຳພາດແລ້ວ" (ຜ່ານຄິວໄປແລ້ວ) */
+const QUEUE_DONE = new Set(["interviewed", "accepted", "rejected"]);
+const isQueueDone = a => QUEUE_DONE.has(a.status);
+
+function queueItemHtml(a, no, isCurrent = false){
+  const inQueue = no !== null;
+  const done = isQueueDone(a);
+  const statusLabel = STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status || "ໃໝ່";
+  return `
+    <li class="queue-item ${inQueue && done ? "is-done" : ""} ${isCurrent ? "is-current" : ""}" data-docid="${escapeHtml(a.docId)}">
+      <span class="queue-handle" aria-hidden="true">⋮⋮</span>
+      ${inQueue ? `<span class="queue-no">${done ? "✓" : no}</span>` : ""}
+      <div class="queue-info">
+        <b>${escapeHtml(a.name || "-")}${isCurrent ? ` <em class="queue-now-tag">ກຳລັງສຳພາດ</em>` : ""}</b>
+        <span>${escapeHtml(a.position || "-")} · ${escapeHtml(appBranchLabel(a))}</span>
+        <div class="queue-meta">
+          <span class="app-status app-status--${escapeHtml(a.status || "new")}">${escapeHtml(statusLabel)}</span>
+          ${inQueue ? `<button type="button" class="queue-done-btn ${done ? "is-on" : ""}" data-queue-act="done"
+                  title="${done ? "ກົດເພື່ອຍົກເລີກ (ກັບໄປສະຖານະເດີມ)" : "ໝາຍວ່າສຳພາດຄົນນີ້ແລ້ວ"}">${done ? "✓ ສຳພາດແລ້ວ" : "ສຳພາດແລ້ວ"}</button>` : ""}
+        </div>
+      </div>
+      <button type="button" class="queue-act ${inQueue ? "queue-act--remove" : ""}"
+              data-queue-act="${inQueue ? "remove" : "add"}"
+              title="${inQueue ? "ເອົາອອກຈາກຄິວ" : "ເພີ່ມທ້າຍຄິວ"}">${inQueue ? "✕" : "+"}</button>
+    </li>`;
+}
+
+function renderQueueBoard(){
+  const listEl = $("queue-list");
+  const poolEl = $("queue-pool");
+  const queued = applications.filter(a => queueNo(a) !== null).sort(byQueue);
+  const q = queueFilters.q.trim().toLowerCase();
+  const poolAll = applications.filter(a => queueNo(a) === null);
+  const pool = poolAll.filter(a => {
+    if(queueFilters.branch && appBranchKey(a) !== queueFilters.branch) return false;
+    if(queueFilters.status && (a.status || "new") !== queueFilters.status) return false;
+    if(q){
+      const hay = [a.name, a.position, a.department, a.branch, a.phone].filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const currentId = queued.find(a => !isQueueDone(a))?.docId;
+  listEl.innerHTML = queued.map((a, i) => queueItemHtml(a, i + 1, a.docId === currentId)).join("");
+  poolEl.innerHTML = pool.map(a => queueItemHtml(a, null)).join("");
+  $("queue-empty").hidden = queued.length > 0;
+  $("queue-main-count").textContent = `${queued.length} ຄົນ`;
+  $("queue-pool-count").textContent = pool.length === poolAll.length
+    ? `${poolAll.length} ຄົນ` : `${pool.length} / ${poolAll.length} ຄົນ`;
+  $("queue-count").textContent = queued.length ? `(${queued.length})` : "";
+
+  /* ຕົວກອງຂອງຝັ່ງ "ຍັງບໍ່ໄດ້ຈັດຄິວ" */
+  const branchKeys = [...new Set(applications.map(appBranchKey))];
+  $("queue-filter-branch").innerHTML = `<option value="">ທຸກສາຂາ</option>` +
+    branchKeys.map(k => `<option value="${escapeHtml(k)}">${escapeHtml(k === NO_BRANCH ? "ບໍ່ໄດ້ລະບຸສາຂາ" : k)}</option>`).join("");
+  $("queue-filter-branch").value = queueFilters.branch;
+  $("queue-filter-status").innerHTML = `<option value="">ທຸກສະຖານະ</option>` +
+    STATUS_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
+  $("queue-filter-status").value = queueFilters.status;
+
+  initQueueSortables();
+}
+
+function initQueueSortables(){
+  if(queueSortables.length) return;
+  if(typeof Sortable === "undefined"){
+    setStatus($("queue-status"), "ໂຫຼດຕົວລາກວາງ (SortableJS) ບໍ່ໄດ້ — ໃຊ້ປຸ່ມ + / ✕ ແທນໄດ້", "err");
+    return;
+  }
+  const common = {
+    group: "interview-queue",
+    animation: 160,
+    filter: ".queue-act, .queue-done-btn",
+    preventOnFilter: false,
+    ghostClass: "queue-ghost",
+    chosenClass: "queue-chosen"
+  };
+  queueSortables = [
+    /* ຝັ່ງຄິວ: ລາກຂຶ້ນ-ລົງ / ຮັບຈາກຝັ່ງ pool / ລາກອອກໄປ pool → ບັນທຶກທຸກຄັ້ງ */
+    Sortable.create($("queue-list"), { ...common, onSort: () => saveQueue(currentQueueIds()) }),
+    /* ຝັ່ງ pool: ບໍ່ຕ້ອງຈັດລຳດັບ */
+    Sortable.create($("queue-pool"), { ...common, sort: false })
+  ];
+}
+
+const currentQueueIds = () =>
+  [...$("queue-list").querySelectorAll(".queue-item")].map(li => li.dataset.docid).filter(Boolean);
+
+/* ບັນທຶກຄິວໃໝ່: ids[0] = ຄິວ 1, ids[1] = ຄິວ 2 ... ຄົນທີ່ບໍ່ຢູ່ໃນ ids ຈະຖືກຖອນອອກຈາກຄິວ
+   ຂຽນສະເພາະເອກະສານທີ່ປ່ຽນແທ້ ດ້ວຍ writeBatch (ສຳເລັດທັງໝົດ ຫຼື ບໍ່ປ່ຽນເລີຍ) */
+async function saveQueue(ids){
+  const want = new Map(ids.map((id, i) => [id, i + 1]));
+  const changes = applications
+    .map(a => ({ a, next: want.get(a.docId) ?? null }))
+    .filter(({ a, next }) => queueNo(a) !== next);
+  if(!changes.length){ renderQueueBoard(); return; }
+
+  queueSortables.forEach(s => s.option("disabled", true));
+  setStatus($("queue-status"), "ກຳລັງບັນທຶກຄິວ...");
+  try {
+    for(let i = 0; i < changes.length; i += 400){
+      const batch = writeBatch(db);
+      changes.slice(i, i + 400).forEach(({ a, next }) => {
+        batch.update(doc(db, APPLICATIONS_COLLECTION, a.docId),
+          { interviewOrder: next === null ? deleteField() : next });
+      });
+      await batch.commit();
+    }
+    changes.forEach(({ a, next }) => {
+      if(next === null) delete a.interviewOrder; else a.interviewOrder = next;
+    });
+    setStatus($("queue-status"), `ບັນທຶກຄິວແລ້ວ (${ids.length} ຄົນ) — ໜ້າຜູ້ສຳພາດອັບເດດທັນທີ`, "ok");
+  } catch (err){
+    console.error(err);
+    setStatus($("queue-status"), "ບັນທຶກຄິວບໍ່ສຳເລັດ: " + err.message, "err");
+  } finally {
+    queueSortables.forEach(s => s.option("disabled", false));
+    renderQueueBoard();
+    renderApplications();
+  }
+}
+
+/* ປຸ່ມ + (ເພີ່ມທ້າຍຄິວ) ແລະ ✕ (ເອົາອອກ) — ສຳລັບມືຖື ຫຼື ຜູ້ທີ່ບໍ່ຢາກລາກ */
+$("tab-queue").addEventListener("click", e => {
+  const btn = e.target.closest("[data-queue-act]");
+  if(!btn) return;
+  const id = btn.closest(".queue-item")?.dataset.docid;
+  if(!id) return;
+  if(btn.dataset.queueAct === "done"){ toggleInterviewed(id, btn); return; }
+  const ids = currentQueueIds().filter(x => x !== id);
+  if(btn.dataset.queueAct === "add") ids.push(id);
+  saveQueue(ids);
+});
+
+/* ໝາຍ / ຍົກເລີກ "ສຳພາດແລ້ວ" — ຈື່ສະຖານະເດີມໄວ້ໃນ statusBeforeInterview ເພື່ອກັບຄືນໄດ້ */
+async function toggleInterviewed(id, btn){
+  const a = applications.find(x => x.docId === id);
+  if(!a) return;
+  const done = isQueueDone(a);
+  const update = done
+    ? { status: a.statusBeforeInterview || "reviewing", statusBeforeInterview: deleteField() }
+    : { status: "interviewed", statusBeforeInterview: a.status || "new" };
+  btn.disabled = true;
+  try {
+    await updateDoc(doc(db, APPLICATIONS_COLLECTION, id), update);
+    if(done){ a.status = update.status; delete a.statusBeforeInterview; }
+    else { a.statusBeforeInterview = update.statusBeforeInterview; a.status = "interviewed"; }
+    setStatus($("queue-status"),
+      done ? `ຍົກເລີກ "ສຳພາດແລ້ວ" ຂອງ ${a.name || ""}` : `${a.name || ""} ສຳພາດແລ້ວ — ໜ້າຜູ້ສຳພາດຂ້າມໄປຄົນຖັດໄປໃຫ້ແລ້ວ`, "ok");
+    renderQueueBoard();
+    renderAppFilterOptions();
+    renderApplications();
+  } catch (err){
+    console.error(err);
+    setStatus($("queue-status"), "ປ່ຽນສະຖານະບໍ່ສຳເລັດ: " + err.message, "err");
+    btn.disabled = false;
+  }
+}
+
+$("queue-clear-btn").addEventListener("click", () => {
+  const n = currentQueueIds().length;
+  if(!n) return;
+  if(!confirm(`ລ້າງຄິວສຳພາດທັງໝົດ ${n} ຄົນ?`)) return;
+  saveQueue([]);
+});
+
+$("queue-filter-branch").addEventListener("change", e => { queueFilters.branch = e.target.value; renderQueueBoard(); });
+$("queue-filter-status").addEventListener("change", e => { queueFilters.status = e.target.value; renderQueueBoard(); });
+$("queue-filter-q").addEventListener("input",       e => { queueFilters.q      = e.target.value; renderQueueBoard(); });
+
 $("clear-filters-btn").addEventListener("click", () => {
   appFilters.branch = appFilters.dept = appFilters.status = appFilters.q = "";
   $("filter-search").value = "";

@@ -159,6 +159,7 @@
             <button class="tab-btn is-active" data-tab="departments">ຈັດການພະແນກ</button>
             <button class="tab-btn" data-tab="branches">ຈັດການສາຂາ</button>
             <button class="tab-btn" data-tab="applications">ໃບສະໝັກວຽກ <span class="tab-count" id="app-count"></span></button>
+            <button class="tab-btn" data-tab="queue">ລຳດັບສຳພາດ <span class="tab-count" id="queue-count"></span></button>
             <button class="tab-btn" data-tab="settings">ຕັ້ງຄ່າ</button>
           </nav>
           <div class="admin-sidebar-foot">
@@ -347,6 +348,40 @@
 
           </div>
 
+          <!-- ລຳດັບສຳພາດ: ລາກວາງເພື່ອຈັດຄິວ — ໜ້າຜູ້ສຳພາດອັບເດດແບບ Realtime -->
+          <div id="tab-queue" class="tab-panel" hidden>
+            <p class="settings-sub" style="margin-bottom:14px">
+              ລາກຊື່ຜູ້ສະໝັກຈາກ <b>"ຍັງບໍ່ໄດ້ຈັດຄິວ"</b> ມາໃສ່ <b>"ຄິວສຳພາດ"</b> ແລ້ວລາກຂຶ້ນ-ລົງເພື່ອຈັດລຳດັບ
+              (ຫຼື ກົດປຸ່ມ <b>+</b> / <b>✕</b>) — ບັນທຶກອັດຕະໂນມັດ ແລະ ໜ້າຜູ້ສຳພາດຈະອັບເດດທັນທີ
+            </p>
+            <div class="panel-toolbar">
+              <span class="form-status" id="queue-status" role="status"></span>
+              <button type="button" class="btn btn--danger btn--sm" id="queue-clear-btn">ລ້າງຄິວທັງໝົດ</button>
+            </div>
+            <div class="queue-board">
+              <section class="queue-col queue-col--main">
+                <header class="queue-col-head">
+                  <h3>ຄິວສຳພາດ</h3>
+                  <span class="queue-col-count" id="queue-main-count">0 ຄົນ</span>
+                </header>
+                <ol class="queue-list" id="queue-list"></ol>
+                <p class="queue-empty" id="queue-empty">ລາກຊື່ມາວາງບ່ອນນີ້ ເພື່ອເລີ່ມຈັດຄິວ</p>
+              </section>
+              <section class="queue-col">
+                <header class="queue-col-head">
+                  <h3>ຍັງບໍ່ໄດ້ຈັດຄິວ</h3>
+                  <span class="queue-col-count" id="queue-pool-count">0 ຄົນ</span>
+                </header>
+                <div class="queue-pool-filters">
+                  <select id="queue-filter-branch"><option value="">ທຸກສາຂາ</option></select>
+                  <select id="queue-filter-status"><option value="">ທຸກສະຖານະ</option></select>
+                  <input type="search" id="queue-filter-q" placeholder="ຄົ້ນຫາຊື່ / ຕຳແໜ່ງ...">
+                </div>
+                <ul class="queue-list queue-list--pool" id="queue-pool"></ul>
+              </section>
+            </div>
+          </div>
+
           <div id="tab-applications" class="tab-panel" hidden>
             <div class="panel-toolbar">
               <button class="btn btn--ghost" id="reload-apps-btn">ໂຫຼດຂໍ້ມູນໃໝ່</button>
@@ -370,6 +405,13 @@
               <label class="field">
                 <span>ຄົ້ນຫາ (ຊື່ / ອີເມວ / ເບີໂທ / ຕຳແໜ່ງ)</span>
                 <input type="search" id="filter-search" placeholder="ພິມເພື່ອຄົ້ນຫາ...">
+              </label>
+              <label class="field">
+                <span>ຮຽງຕາມ</span>
+                <select id="sort-apps">
+                  <option value="newest">ສະໝັກລ່າສຸດກ່ອນ</option>
+                  <option value="queue">ລຳດັບສຳພາດ (ຄິວ)</option>
+                </select>
               </label>
             </div>
             <div class="panel-toolbar">
@@ -509,6 +551,7 @@
     </div>
   </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
   <script type="module" src="admin.js"></script>
 </body>
 </html>
